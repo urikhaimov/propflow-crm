@@ -1,0 +1,75 @@
+/* app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0a0e1a;
+  --bg2: #0f1524;
+  --bg3: #141929;
+  --border: rgba(255,255,255,0.06);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: #e2e8f0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* Glass morphism card */
+.glass {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(8px);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* Animations */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.animate-spin { animation: spin 1s linear infinite; }
+.animate-pulse { animation: pulse-dot 1.5s ease-in-out infinite; }
+
+/* RTL input placeholder alignment */
+input::placeholder, textarea::placeholder {
+  text-align: right;
+}
+
+/* Score bar transition */
+.score-fill {
+  transition: width 0.4s ease-out;
+}
+
+/* Table hover */
+tr { transition: background 0.12s; }
+
+/* Focus rings */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 1px rgba(99,102,241,0.3);
+}
+
+/* Button transitions */
+button { transition: all 0.15s; }
+
+/* Kanban card shadow */
+.kanban-card:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+/* Gradient backgrounds */
+.gradient-indigo { background: linear-gradient(135deg, #4f6ef7, #7c3aed); }
+.gradient-green { background: linear-gradient(135deg, #22c55e, #16a34a); }
