@@ -1,34 +1,85 @@
 'use client'
 // components/leads/LeadDetailPanel.tsx
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useCRMStore } from '@/store/crm'
 import { updateLead } from '@/lib/leads'
 import { generateEmail } from '@/lib/ai'
 import { IntentBadge, StatusBadge, ScoreBar, Avatar, AIBox, SectionTitle } from '@/components/ui'
-import { fmt, intentColor, statusLabel } from '@/lib/utils'
-import type { LeadStatus } from '@/types'
+import { fmt, intentColor, statusLabel, timeAgo } from '@/lib/utils'
+import type { LeadStatus, Activity } from '@/types'
 
 const statuses: LeadStatus[] = ['new', 'contacted', 'qualified', 'negotiating', 'won', 'lost']
+
+const activityIcon: Record<string, string> = {
+  email: '📧', call: '📞', note: '📝', status_change: '🔄', match: '🎯', discovery: '🔍',
+}
 
 export default function LeadDetailPanel() {
   const { selectedLead, setSelectedLead, updateLead: storeUpdate } = useCRMStore()
   const [generatingEmail, setGeneratingEmail] = useState(false)
   const [emailDraft, setEmailDraft] = useState('')
-
-  if (!selectedLead) return null
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [copied, setCopied] = useState(false)
 
   const l = selectedLead
 
+  const fetchActivities = useCallback(async (leadId: string) => {
+    try {
+      const res = await fetch(`/api/activities?lead_id=${leadId}`)
+      const data = await res.json()
+      setActivities(data.activities || [])
+    } catch {
+      setActivities([])
+    }
+  }, [])
+
+  useEffect(() => {
+    if (l?.id) {
+      setActivities([])
+      setEmailDraft('')
+      fetchActivities(l.id)
+    }
+  }, [l?.id, fetchActivities])
+
+  if (!l) return null
+
   async function handleStatusChange(status: LeadStatus) {
-    await updateLead(l.id, { status })
-    storeUpdate(l.id, { status })
+    await updateLead(l!.id, { status })
+    storeUpdate(l!.id, { status })
   }
 
   async function handleGenerateEmail() {
     setGeneratingEmail(true)
-    const email = await generateEmail(l, `הם ${l.intent_type === 'buyer' ? 'מחפשים לקנות' : l.intent_type === 'renter' ? 'מחפשים לשכור' : 'מעוניינים'} נכס ב${l.city}`)
+    const email = await generateEmail(l!, `הם ${l!.intent_type === 'buyer' ? 'מחפשים לקנות' : l!.intent_type === 'renter' ? 'מחפשים לשכור' : 'מעוניינים'} נכס ב${l!.city}`)
     setEmailDraft(email)
     setGeneratingEmail(false)
+  }
+
+  async function handleMarkSent() {
+    const message = emailDraft || l!.ai_follow_up || ''
+    if (!message) return
+
+    try {
+      await navigator.clipboard.writeText(message)
+    } catch { /* clipboard not available */ }
+
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+
+    const res = await fetch('/api/activities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lead_id: l!.id, type: 'email', content: message }),
+    })
+    const data = await res.json()
+    if (data.activity) {
+      setActivities(prev => [data.activity, ...prev])
+    }
+
+    if (l!.status === 'new') {
+      await updateLead(l!.id, { status: 'contacted' })
+      storeUpdate(l!.id, { status: 'contacted' })
+    }
   }
 
   return (
@@ -149,26 +200,49 @@ export default function LeadDetailPanel() {
               {emailDraft}
             </div>
           )}
-          <button onClick={handleGenerateEmail} disabled={generatingEmail}
-            className="w-full mt-2 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg text-xs font-medium transition disabled:opacity-50">
-            {generatingEmail ? 'יוצר הודעה…' : '🤖 צור הודעה AI חדשה'}
-          </button>
+          <div className="flex gap-2 mt-2">
+            <button onClick={handleGenerateEmail} disabled={generatingEmail}
+              className="flex-1 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg text-xs font-medium transition disabled:opacity-50">
+              {generatingEmail ? 'יוצר…' : '🤖 צור הודעה חדשה'}
+            </button>
+            {(emailDraft || l.ai_follow_up) && (
+              <button onClick={handleMarkSent}
+                className={`flex-1 py-2 rounded-lg text-xs font-medium transition ${copied ? 'bg-green-500/20 text-green-300' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}>
+                {copied ? '✅ הועתק!' : '📋 העתק + סמן כנשלח'}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col gap-2">
-          <button className="w-full py-2.5 bg-indigo-500 hover:bg-indigo-400 rounded-xl text-sm font-medium transition">
-            📤 שלח הודעה
+        <div className="grid grid-cols-2 gap-2">
+          <button className="py-2 glass hover:bg-white/5 rounded-xl text-xs font-medium transition">
+            🎯 מצא התאמות
           </button>
-          <div className="grid grid-cols-2 gap-2">
-            <button className="py-2 glass hover:bg-white/5 rounded-xl text-xs font-medium transition">
-              🎯 מצא התאמות
-            </button>
-            <button className="py-2 glass hover:bg-white/5 rounded-xl text-xs font-medium transition">
-              📅 קבע פגישה
-            </button>
-          </div>
+          <button className="py-2 glass hover:bg-white/5 rounded-xl text-xs font-medium transition">
+            📅 קבע פגישה
+          </button>
         </div>
+
+        {/* Activity timeline */}
+        {activities.length > 0 && (
+          <div>
+            <SectionTitle>היסטוריית פעילות</SectionTitle>
+            <div className="space-y-2">
+              {activities.map(a => (
+                <div key={a.id} className="flex gap-2.5 text-xs">
+                  <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center flex-shrink-0 text-sm">
+                    {activityIcon[a.type] || '📌'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-slate-300 truncate">{a.content || a.type}</div>
+                    <div className="text-slate-600">{timeAgo(a.created_at)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

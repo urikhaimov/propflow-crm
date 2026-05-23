@@ -98,6 +98,8 @@ export async function extractLeadFromPost(
 {
   "first_name": "<first name if found, else לא>",
   "last_name": "<last name if found, else ידוע>",
+  "email": "<email address if found, else null>",
+  "phone": "<phone number if found (Israeli or international), else null>",
   "intent_type": "buyer|seller|renter|investor",
   "city": "<city if mentioned>",
   "neighborhood": "<neighborhood if mentioned>",

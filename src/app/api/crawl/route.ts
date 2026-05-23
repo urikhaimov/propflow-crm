@@ -1,5 +1,6 @@
-// app/api/crawl/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase'
+import { buildFingerprint, shouldSkipPost, parseLeadJson } from '@/lib/scraper-utils'
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
 
@@ -27,6 +28,8 @@ If YES return JSON with these exact keys:
 {
   "first_name": "לא",
   "last_name": "ידוע",
+  "email": null,
+  "phone": null,
   "intent_type": "buyer",
   "city": "תל אביב",
   "neighborhood": "פלורנטין",
@@ -40,6 +43,8 @@ If YES return JSON with these exact keys:
   "tags": ["דחוף", "קנייה"],
   "source_platform": "${source}"
 }
+
+Extract first_name / last_name if the author signs their name in the post. Extract email if an email address appears. Extract phone if a phone number appears (Israeli format or international). Use null for any field not found.
 
 Adjust all values to match the actual post content.
 If NO real estate lead found: null
@@ -59,12 +64,7 @@ ${text.substring(0, 800)}
 
     const data = await res.json()
     const raw = data.content?.[0]?.text?.trim() || ''
-
-    if (!raw || raw === 'null') return { lead: null }
-
-    const cleaned = raw.replace(/```json|```/g, '').trim()
-    const parsed = JSON.parse(cleaned)
-    return { lead: parsed }
+    return { lead: parseLeadJson(raw) }
   } catch (err) {
     return { lead: null, error: String(err) }
   }
@@ -102,7 +102,9 @@ export async function POST(req: NextRequest) {
       if (res.ok) {
         const data = await res.json()
         const posts = data.posts || []
-        debugLog.push(`reddit returned ${posts.length} posts`)
+        // surface per-subreddit breakdown from the reddit route
+        if (data.debug?.length) data.debug.forEach((l: string) => debugLog.push(`  reddit: ${l}`))
+        debugLog.push(`reddit: ${posts.length} posts after all filters`)
         for (const post of posts) {
           rawPosts.push({
             text: `${post.title}\n${post.body}`.trim(),
@@ -112,10 +114,69 @@ export async function POST(req: NextRequest) {
           })
         }
       } else {
-        debugLog.push(`reddit fetch failed: ${res.status}`)
+        debugLog.push(`reddit fetch failed: HTTP ${res.status}`)
       }
     } catch (err) {
       debugLog.push(`reddit error: ${String(err)}`)
+    }
+  }
+
+  // ── Madlan ─────────────────────────────────────────────────
+  if (sources.includes('madlan')) {
+    try {
+      const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const res = await fetch(`${base}/api/madlan`, { cache: 'no-store' })
+      if (res.ok) {
+        const data = await res.json()
+        for (const post of data.posts || []) {
+          rawPosts.push({ text: `${post.title}\n${post.body}`.trim(), source: 'madlan', url: post.url })
+        }
+        debugLog.push(`madlan returned ${data.posts?.length || 0} posts`)
+      } else {
+        debugLog.push(`madlan fetch failed: ${res.status}`)
+      }
+    } catch (err) {
+      debugLog.push(`madlan error: ${String(err)}`)
+    }
+  }
+
+  // ── Yad2 ───────────────────────────────────────────────────
+  if (sources.includes('yad2')) {
+    try {
+      const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const res = await fetch(`${base}/api/yad2`, { cache: 'no-store' })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.debug?.length) data.debug.forEach((l: string) => debugLog.push(`  yad2: ${l}`))
+        for (const post of data.posts || []) {
+          rawPosts.push({ text: `${post.title}\n${post.body}`.trim(), source: 'yad2', url: post.url })
+        }
+        debugLog.push(`yad2 returned ${data.posts?.length || 0} posts`)
+      } else {
+        debugLog.push(`yad2 fetch failed: HTTP ${res.status}`)
+      }
+    } catch (err) {
+      debugLog.push(`yad2 error: ${String(err)}`)
+    }
+  }
+
+  // ── Telegram ────────────────────────────────────────────────
+  if (sources.includes('telegram')) {
+    try {
+      const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const res = await fetch(`${base}/api/telegram`, { cache: 'no-store' })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.debug?.length) data.debug.forEach((l: string) => debugLog.push(`  telegram: ${l}`))
+        for (const post of data.posts || []) {
+          rawPosts.push({ text: `${post.title}\n${post.body}`.trim(), source: 'telegram', url: post.url })
+        }
+        debugLog.push(`telegram returned ${data.posts?.length || 0} posts`)
+      } else {
+        debugLog.push(`telegram fetch failed: HTTP ${res.status}`)
+      }
+    } catch (err) {
+      debugLog.push(`telegram error: ${String(err)}`)
     }
   }
 
@@ -127,10 +188,14 @@ export async function POST(req: NextRequest) {
       if (res.ok) {
         const data = await res.json()
         if (data.configured) {
+          if (data.debug?.length) data.debug.forEach((l: string) => debugLog.push(`  google: ${l}`))
           for (const post of data.posts || []) {
             rawPosts.push({ text: `${post.title}\n${post.body}`.trim(), source: 'google', url: post.url })
           }
           debugLog.push(`google returned ${data.posts?.length || 0} posts`)
+        } else if (data.apiError) {
+          debugLog.push(`google API error: ${data.apiError} — ${data.message}`)
+          debugLog.push(`google fix: enable the API at console.cloud.google.com/apis/library/customsearch.googleapis.com`)
         } else {
           debugLog.push('google not configured — skipped')
         }
@@ -140,13 +205,33 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── Deduplicate crawler posts against Supabase (last 30 days) ─
+  const manualCount = manualPosts.filter((p: any) => p.text?.trim()).length
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const { data: existing } = await supabase
+    .from('leads')
+    .select('source_url, original_post')
+    .gte('created_at', cutoff)
+
+  const seenUrls = new Set<string>((existing || []).map((l: { source_url?: string }) => l.source_url).filter((u): u is string => !!u))
+  const seenFingerprints = new Set((existing || []).map((l: { original_post?: string }) => buildFingerprint(l.original_post || '')))
+
+  const crawlerPosts = rawPosts
+    .slice(manualCount)
+    .filter(p => {
+      if (shouldSkipPost(p, seenUrls, seenFingerprints)) {
+        debugLog.push(`skipped (duplicate): "${buildFingerprint(p.text)}"`)
+        return false
+      }
+      return true
+    })
+    .slice(0, 15)
+
   // ── Extract with Claude ─────────────────────────────────────
   const leads = []
   const errors = []
   const seen = new Set<string>()
 
-  const manualCount = manualPosts.filter((p: any) => p.text?.trim()).length
-  const crawlerPosts = rawPosts.slice(manualCount, manualCount + 15)
   const toProcess = [...rawPosts.slice(0, manualCount), ...crawlerPosts]
 
   debugLog.push(`processing ${toProcess.length} posts with Claude`)

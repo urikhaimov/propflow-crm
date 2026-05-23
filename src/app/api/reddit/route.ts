@@ -1,73 +1,69 @@
-// app/api/reddit/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-
-// Strong real-estate intent signals
-const INTENT_KEYWORDS = [
-  'looking for apartment', 'looking to buy', 'looking to rent',
-  'need apartment', 'searching for flat', 'want to buy',
-  'relocating to', 'moving to israel', 'moving to tel aviv',
-  'apartment available', 'for rent', 'for sale',
-  'מחפש דירה', 'מחפשת דירה', 'מוכר דירה', 'דירה למכירה',
-  'דירה להשכרה', 'רוצה לקנות', 'מעוניין בדירה',
-  'apartment in tel aviv', 'apartment in jerusalem', 'apartment in haifa',
-  'flat in israel', 'room for rent', 'studio for rent',
-  'sell my apartment', 'selling apartment', 'invest in israel',
-  'real estate investment israel', 'property for sale israel',
-]
+import { hasIsraelSignal } from '@/lib/scraper-utils'
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
   const limit = 50
+  const debug: string[] = []
 
   const results: Array<{
     id: string; title: string; body: string
     author: string; subreddit: string; url: string; created: number
   }> = []
 
-  // Target URLs — most likely to have real leads
+  // skipIsraelFilter=true for subreddit-specific searches (already geo-targeted)
   const targets = [
-    // r/israelrealestate — most targeted
-    `https://www.reddit.com/r/israelrealestate/new.json?limit=${limit}`,
-    // r/Israel filtered for housing
-    `https://www.reddit.com/r/Israel/search.json?q=apartment+rent+buy+looking&restrict_sr=1&sort=new&limit=25&t=month`,
-    // r/telaviv housing posts
-    `https://www.reddit.com/r/telaviv/search.json?q=apartment+rent+looking+flat&restrict_sr=1&sort=new&limit=25&t=month`,
-    // r/Jerusalem housing
-    `https://www.reddit.com/r/Jerusalem/search.json?q=apartment+rent+looking&restrict_sr=1&sort=new&limit=20&t=month`,
-    // Global search for Israel real estate
-    `https://www.reddit.com/search.json?q=apartment+israel+looking+rent+buy&sort=new&limit=25&t=week`,
-    `https://www.reddit.com/search.json?q=דירה+ישראל+מחפש&sort=new&limit=20&t=month`,
+    // ── Israel real-estate subreddit — all posts are relevant ──────────────
+    { url: `https://www.reddit.com/r/israelrealestate/new.json?limit=${limit}`, skipIsrael: true },
+    // ── Aliyah — people asking about housing when moving to Israel ──────────
+    { url: `https://www.reddit.com/r/aliyah/search.json?q=apartment+rent+buy+housing&restrict_sr=1&sort=new&limit=30&t=month`, skipIsrael: true },
+    { url: `https://www.reddit.com/r/aliyah/search.json?q=דירה+שכירות+נדלן&restrict_sr=1&sort=new&limit=20&t=month`, skipIsrael: true },
+    // ── Israel general — real estate posts ────────────────────────────────
+    { url: `https://www.reddit.com/r/Israel/search.json?q=apartment+rent+buy+property&restrict_sr=1&sort=new&limit=30&t=month`, skipIsrael: true },
+    { url: `https://www.reddit.com/r/Israel/search.json?q=דירה+שכירות+קנייה&restrict_sr=1&sort=new&limit=20&t=month`, skipIsrael: true },
+    // ── City subreddits ────────────────────────────────────────────────────
+    { url: `https://www.reddit.com/r/telaviv/search.json?q=apartment+rent+room+flat&restrict_sr=1&sort=new&limit=25&t=month`, skipIsrael: true },
+    { url: `https://www.reddit.com/r/Jerusalem/search.json?q=apartment+rent+room&restrict_sr=1&sort=new&limit=20&t=month`, skipIsrael: true },
+    // ── Global searches — keep Israel signal filter ────────────────────────
+    { url: `https://www.reddit.com/search.json?q=apartment+israel+rent+buy&sort=new&limit=30&t=week`, skipIsrael: false },
+    { url: `https://www.reddit.com/search.json?q=looking+for+apartment+tel+aviv+jerusalem+haifa&sort=new&limit=25&t=week`, skipIsrael: false },
+    { url: `https://www.reddit.com/search.json?q=דירה+ישראל+מחפש+להשכיר&sort=new&limit=25&t=week`, skipIsrael: false },
+    { url: `https://www.reddit.com/search.json?q=real+estate+israel+buy+sell&sort=new&limit=25&t=week`, skipIsrael: false },
   ]
 
-  for (const url of targets) {
+  for (const target of targets) {
     try {
-      const res = await fetch(url, {
+      const res = await fetch(target.url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 PropFlowCRM/1.0',
+          'User-Agent': 'Mozilla/5.0 (compatible; PropFlowCRM/1.0)',
           'Accept': 'application/json',
         },
         cache: 'no-store',
       })
-      if (!res.ok) continue
+
+      if (!res.ok) {
+        const subLabel = target.url.split('/r/')[1]?.split('/')[0] || 'global'
+        debug.push(`r/${subLabel}: HTTP ${res.status}`)
+        continue
+      }
 
       const data = await res.json()
       const posts = data?.data?.children || []
+      let added = 0
 
       for (const post of posts) {
         const p = post.data
         if (!p?.title) continue
-        if (results.find(r => r.id === p.id)) continue // dedupe
+        if (results.find(r => r.id === p.id)) continue  // global dedup
 
-        const fullText = `${p.title} ${p.selftext || ''}`.toLowerCase()
+        const fullText = `${p.title} ${p.selftext || ''}`
 
-        // Must match at least one strong intent signal
-        const hasIntent = INTENT_KEYWORDS.some(kw => fullText.includes(kw.toLowerCase()))
-        if (!hasIntent) continue
+        // For global (non-subreddit) searches, require an Israel signal
+        if (!target.skipIsrael && !hasIsraelSignal(fullText)) continue
 
-        // Must have some content (not just a title)
         const content = p.selftext?.trim() || ''
         const combinedText = `${p.title}. ${content}`.trim()
-        if (combinedText.length < 20) continue
+        // Accept title-only posts (caravans, quick listings often have no body)
+        if (combinedText.length < 10) continue
 
         results.push({
           id: p.id,
@@ -78,15 +74,21 @@ export async function GET(req: NextRequest) {
           url: `https://reddit.com${p.permalink}`,
           created: p.created_utc,
         })
+        added++
       }
-    } catch {
-      continue
+
+      const subLabel = target.url.split('/r/')[1]?.split('/')[0] || 'global'
+      debug.push(`r/${subLabel}: ${posts.length} raw → ${added} added`)
+    } catch (err) {
+      const subLabel = target.url.split('/r/')[1]?.split('/')[0] || 'global'
+      debug.push(`r/${subLabel}: error — ${String(err).substring(0, 60)}`)
     }
   }
 
   return NextResponse.json({
     source: 'reddit',
     count: results.length,
-    posts: results.slice(0, 30),
+    posts: results.slice(0, 40),
+    debug,
   })
 }

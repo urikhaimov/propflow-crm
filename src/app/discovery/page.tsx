@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import CRMLayout from '@/components/layout/CRMLayout'
 import Topbar from '@/components/layout/Topbar'
-import { AIBox, SectionTitle } from '@/components/ui'
+import { SectionTitle } from '@/components/ui'
 import { useCRMStore } from '@/store/crm'
 import { createLead } from '@/lib/leads'
 import { fmt, scoreColor } from '@/lib/utils'
@@ -12,6 +12,8 @@ import { fmt, scoreColor } from '@/lib/utils'
 type DiscoveredLead = {
   first_name: string
   last_name: string
+  email?: string
+  phone?: string
   intent_type: string
   city: string
   neighborhood: string
@@ -28,12 +30,16 @@ type DiscoveredLead = {
   source_url?: string
   saved?: boolean
   saving?: boolean
+  seenBefore?: boolean
 }
 
 const SOURCE_CONFIG = [
-  { key: 'reddit',  label: 'Reddit',           emoji: '🌐', desc: 'r/Israel, r/israelrealestate', free: true },
-  { key: 'google',  label: 'Google Search',     emoji: '🔍', desc: '100 חיפושים חינם ביום',       free: true },
-  { key: 'manual',  label: 'הדבקה ידנית',       emoji: '📋', desc: 'פייסבוק, טלגרם, וואטסאפ',     free: true },
+  { key: 'reddit',   label: 'Reddit',         emoji: '🌐', desc: 'r/Israel, r/israelrealestate',        free: true },
+  { key: 'yad2',     label: 'יד2',            emoji: '🏡', desc: 'רישומי נדל"ן — קנייה והשכרה',         free: true },
+  { key: 'telegram', label: 'טלגרם',          emoji: '✈️', desc: 'ערוצי נדל"ן ישראלי ציבוריים',        free: true },
+  { key: 'madlan',   label: 'מדלן',           emoji: '🏠', desc: 'מוכרים ומשכירים פעילים',              free: true },
+  { key: 'google',   label: 'Google Search',  emoji: '🔍', desc: '100 חיפושים חינם ביום',              free: true },
+  { key: 'manual',   label: 'הדבקה ידנית',    emoji: '📋', desc: 'פייסבוק, וואטסאפ, כל מקור אחר',     free: true },
 ]
 
 const KEYWORD_PRESETS = [
@@ -41,6 +47,20 @@ const KEYWORD_PRESETS = [
   'מוכר דירה חיפה', 'investment property israel', 'looking for apartment tel aviv',
   'need 4 room apartment', 'דירה 4 חדרים', 'villa for sale israel',
 ]
+
+const SEEN_KEY = 'propflow_seen_posts'
+
+function loadSeen(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]')) } catch { return new Set() }
+}
+function saveSeen(seen: Set<string>) {
+  // Keep last 500 fingerprints so localStorage doesn't grow unbounded
+  const arr = [...seen].slice(-500)
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify(arr)) } catch {}
+}
+function postFingerprint(lead: DiscoveredLead): string {
+  return lead.source_url || lead.original_post?.substring(0, 60) || ''
+}
 
 export default function DiscoveryPage() {
   const { addLead } = useCRMStore()
@@ -54,9 +74,15 @@ export default function DiscoveryPage() {
   const [stats, setStats]               = useState({ scanned: 0, extracted: 0 })
   const [log, setLog]                   = useState<string[]>([])
   const [googleNote, setGoogleNote]     = useState('')
+  const [googleApiError, setGoogleApiError] = useState('')
 
   function toggleSource(key: string) {
     setSelected(s => s.includes(key) ? s.filter(x => x !== key) : [...s, key])
+  }
+
+  function resetSeenHistory() {
+    try { localStorage.removeItem(SEEN_KEY) } catch {}
+    addLog('🔄 היסטוריית פוסטים נוקתה — כל הפוסטים יוצגו שוב בסריקה הבאה')
   }
 
   function addLog(msg: string) {
@@ -70,6 +96,7 @@ export default function DiscoveryPage() {
     setLog([])
     setStats({ scanned: 0, extracted: 0 })
     setGoogleNote('')
+    setGoogleApiError('')
 
     addLog('מתחיל סריקה...')
 
@@ -95,14 +122,42 @@ export default function DiscoveryPage() {
       const data = await res.json()
 
       if (data.googleNote) setGoogleNote(data.googleNote)
-      addLog(`נסרקו ${data.scanned} פוסטים`)
-      addLog(`Claude חילץ ${data.extracted} לידים`)
+
+      // Show every backend debug line so the user sees exactly what happened
+      if (data.debug?.length) {
+        data.debug.forEach((line: string) => {
+          addLog(line)
+          if (line.includes('403 PERMISSION_DENIED')) setGoogleApiError('403')
+        })
+      }
+
+      addLog(`✔ נסרקו ${data.scanned} פוסטים סה"כ`)
+      addLog(`✔ Claude חילץ ${data.extracted} לידים`)
+
+      if (data.errors?.length) {
+        data.errors.forEach((e: string) => addLog(`❌ שגיאת Claude: ${e}`))
+      }
 
       setStats({ scanned: data.scanned, extracted: data.extracted })
-      setLeads(data.leads || [])
 
-      if (data.extracted === 0) addLog('לא נמצאו לידים. נסו מילות חיפוש אחרות.')
-      else addLog(`✅ סיום — ${data.extracted} לידים מוכנים לשמירה`)
+      // Mark seen leads — show all but flag ones already seen
+      const seen = loadSeen()
+      const allLeads: DiscoveredLead[] = (data.leads || []).map((l: DiscoveredLead) => {
+        const fp = postFingerprint(l)
+        return { ...l, seenBefore: !!fp && seen.has(fp) }
+      })
+
+      // Record all as seen for future scans
+      allLeads.forEach(l => { const fp = postFingerprint(l); if (fp) seen.add(fp) })
+      saveSeen(seen)
+
+      setLeads(allLeads)
+      const seenCount = allLeads.filter(l => l.seenBefore).length
+
+      if (seenCount > 0) addLog(`⏭ ${seenCount} לידים נראו בעבר (מסומנים בצהוב)`)
+      if (data.extracted === 0 && data.scanned === 0) addLog('⚠ לא נמצאו פוסטים. ייתכן ש-Reddit מגביל גישה כרגע. נסו הדבקה ידנית.')
+      else if (data.extracted === 0) addLog('⚠ פוסטים נסרקו אך לא חולצו לידים. Claude לא מצא נדל"ן ישראלי בפוסטים.')
+      else addLog(`✅ סיום — ${allLeads.length} לידים מוכנים (${allLeads.length - seenCount} חדשים)`)
 
     } catch (err) {
       addLog(`❌ שגיאה: ${String(err)}`)
@@ -118,6 +173,8 @@ export default function DiscoveryPage() {
       const saved = await createLead({
         first_name:      lead.first_name || 'לא',
         last_name:       lead.last_name  || 'ידוע',
+        email:           lead.email || undefined,
+        phone:           lead.phone || undefined,
         intent_type:     lead.intent_type as any || 'buyer',
         city:            lead.city,
         neighborhood:    lead.neighborhood,
@@ -134,6 +191,10 @@ export default function DiscoveryPage() {
         status:          'new',
       })
       addLead(saved)
+      // Mark as seen so it won't reappear on future scans
+      const seen = loadSeen()
+      const fp = postFingerprint(lead)
+      if (fp) { seen.add(fp); saveSeen(seen) }
       setLeads(prev => prev.map((l, i) => i === idx ? { ...l, saved: true, saving: false } : l))
       addLog(`✅ ליד נשמר: ${lead.first_name} ${lead.last_name}`)
     } catch (err) {
@@ -247,13 +308,31 @@ export default function DiscoveryPage() {
               </div>
             )}
 
-            {/* Google note */}
-            {googleNote && (
+            {/* Google API not enabled error */}
+            {googleApiError === '403' && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-xs text-red-300">
+                <div className="font-semibold mb-1">⚠️ Google Search — ה-API לא מופעל</div>
+                <p className="text-red-300/80 mb-2">
+                  המפתח קיים אך ה-Custom Search API לא הופעל בפרויקט Google Cloud שלך.
+                </p>
+                <ol className="list-decimal list-inside space-y-1 text-red-300/70 mb-2">
+                  <li>לך ל-Google Cloud Console</li>
+                  <li>APIs &amp; Services → Library</li>
+                  <li>חפש "Custom Search API" ולחץ Enable</li>
+                </ol>
+                <a href="https://console.cloud.google.com/apis/library/customsearch.googleapis.com"
+                  target="_blank" rel="noreferrer"
+                  className="text-indigo-400 hover:underline block">
+                  פתח Google Cloud Console ← (Enable Custom Search API)
+                </a>
+              </div>
+            )}
+
+            {/* Google keys not configured */}
+            {googleNote && !googleApiError && (
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-300">
                 <div className="font-semibold mb-1">⚙️ Google Search — הגדרה נדרשת</div>
-                <div className="text-amber-400/80 mb-2">
-                  הוסיפו ל-.env.local:
-                </div>
+                <div className="text-amber-400/80 mb-2">הוסיפו ל-.env.local:</div>
                 <code className="block bg-slate-900 p-2 rounded text-xs text-green-400 leading-relaxed">
                   GOOGLE_SEARCH_API_KEY=your-key<br/>
                   GOOGLE_SEARCH_ENGINE_ID=your-cx-id
@@ -265,6 +344,14 @@ export default function DiscoveryPage() {
                 </a>
               </div>
             )}
+
+            {/* Reset history */}
+            <button
+              onClick={resetSeenHistory}
+              className="w-full py-2 text-xs text-slate-500 hover:text-slate-300 hover:bg-white/5 border border-white/5 rounded-xl transition"
+            >
+              🔄 נקה היסטוריית פוסטים שנראו
+            </button>
 
             {/* Stats */}
             {(stats.scanned > 0 || running) && (
@@ -288,13 +375,23 @@ export default function DiscoveryPage() {
             {/* Activity log */}
             {log.length > 0 && (
               <div className="glass rounded-2xl p-4">
-                <SectionTitle>לוג פעילות</SectionTitle>
+                <div className="flex items-center justify-between mb-2">
+                  <SectionTitle>לוג פעילות</SectionTitle>
+                  <a href="/debug" className="text-xs text-indigo-400 hover:underline">🔧 אבחון מתקדם →</a>
+                </div>
                 <div className="space-y-1 max-h-40 overflow-y-auto">
                   {log.map((entry, i) => (
                     <div key={i} className="text-xs text-slate-400 font-mono">{entry}</div>
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* Debug link when no results */}
+            {!running && stats.scanned === 0 && log.length === 0 && (
+              <a href="/debug" className="flex items-center gap-2 text-xs text-slate-500 hover:text-indigo-400 transition mt-2">
+                <span>🔧</span> בעיות עם הסריקה? הרץ אבחון מערכת
+              </a>
             )}
           </div>
 
@@ -331,7 +428,7 @@ export default function DiscoveryPage() {
             <div className="space-y-3">
               {leads.map((lead, idx) => (
                 <div key={idx} className={`glass rounded-2xl p-4 border transition ${
-                  lead.saved ? 'border-green-500/30' : 'border-white/5'
+                  lead.saved ? 'border-green-500/30' : lead.seenBefore ? 'border-amber-500/20' : 'border-white/5'
                 }`}>
                   {/* Header */}
                   <div className="flex items-start justify-between gap-2 mb-3">
@@ -344,6 +441,9 @@ export default function DiscoveryPage() {
                       </span>
                       {lead.city && (
                         <span className="text-xs text-slate-500">📍 {lead.city}</span>
+                      )}
+                      {lead.seenBefore && !lead.saved && (
+                        <span className="text-xs px-2 py-0.5 bg-amber-500/15 text-amber-400 rounded-full">נראה לפני</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -374,6 +474,8 @@ export default function DiscoveryPage() {
                     {lead.budget_max && <span>💰 {fmt(lead.budget_max)}</span>}
                     {lead.property_type && <span>🏠 {lead.property_type}</span>}
                     {lead.urgency_score && <span>⚡ דחיפות {lead.urgency_score}</span>}
+                    {lead.phone && <span className="text-green-400">📞 {lead.phone}</span>}
+                    {lead.email && <span className="text-indigo-400">✉️ {lead.email}</span>}
                   </div>
 
                   {/* Tags */}
@@ -396,10 +498,24 @@ export default function DiscoveryPage() {
                     {lead.saved ? (
                       <span className="text-xs text-green-400 font-medium mr-auto">✓ נשמר ב-CRM</span>
                     ) : (
-                      <button onClick={() => saveLead(idx)} disabled={lead.saving}
-                        className="mr-auto px-4 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg text-xs font-medium transition disabled:opacity-50">
-                        {lead.saving ? 'שומר…' : '+ הוסף ל-CRM'}
-                      </button>
+                      <div className="mr-auto flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            // Skip: mark seen without saving
+                            const seen = loadSeen()
+                            const fp = postFingerprint(lead)
+                            if (fp) { seen.add(fp); saveSeen(seen) }
+                            setLeads(prev => prev.filter((_, i) => i !== idx))
+                          }}
+                          className="px-3 py-1.5 text-slate-500 hover:text-slate-300 hover:bg-white/5 rounded-lg text-xs transition"
+                        >
+                          דלג
+                        </button>
+                        <button onClick={() => saveLead(idx)} disabled={lead.saving}
+                          className="px-4 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg text-xs font-medium transition disabled:opacity-50">
+                          {lead.saving ? 'שומר…' : '+ הוסף ל-CRM'}
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>

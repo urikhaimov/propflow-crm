@@ -1,12 +1,13 @@
 'use client'
-// app/properties/page.tsx
 import { useEffect, useState } from 'react'
 import CRMLayout from '@/components/layout/CRMLayout'
 import Topbar from '@/components/layout/Topbar'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { StatusBadge, Spinner, EmptyState } from '@/components/ui'
 import { useCRMStore } from '@/store/crm'
 import { getProperties, createProperty, deleteProperty } from '@/lib/properties'
 import { fmt } from '@/lib/utils'
+import { toast } from '@/lib/toast'
 
 const PROP_EMOJIS: Record<string, string> = {
   apartment: '🏢', villa: '🏡', penthouse: '🌆', studio: '🏠', commercial: '🏪', land: '🌿'
@@ -15,7 +16,8 @@ const PROP_EMOJIS: Record<string, string> = {
 export default function PropertiesPage() {
   const { properties, setProperties, propertiesLoading, setPropertiesLoading } = useCRMStore()
   const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState({ title: '', address: '', city: '', rooms: '', area: '', price: '', is_rental: false, property_type: 'apartment', status: 'available', owner_name: '' })
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [form, setForm] = useState({ title: '', address: '', city: '', rooms: '', area: '', price: '', is_rental: false, property_type: 'apartment' as const, status: 'available' as const, owner_name: '' })
 
   useEffect(() => {
     async function load() {
@@ -29,23 +31,39 @@ export default function PropertiesPage() {
 
   const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }))
 
-  async function handleAdd(e: React.FormEvent) {
+  async function handleAdd(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const newProp = await createProperty({ ...form, rooms: Number(form.rooms), area: Number(form.area), price: Number(form.price) })
     setProperties([newProp, ...properties])
     setShowAdd(false)
-    setForm({ title: '', address: '', city: '', rooms: '', area: '', price: '', is_rental: false, property_type: 'apartment', status: 'available', owner_name: '' })
+    setForm({ title: '', address: '', city: '', rooms: '', area: '', price: '', is_rental: false, property_type: 'apartment' as const, status: 'available' as const, owner_name: '' })
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('למחוק נכס זה?')) return
-    await deleteProperty(id)
-    setProperties(properties.filter(p => p.id !== id))
+  async function confirmDelete() {
+    if (!confirmDeleteId) return
+    try {
+      await deleteProperty(confirmDeleteId)
+      setProperties(properties.filter(p => p.id !== confirmDeleteId))
+      toast.success('הנכס נמחק בהצלחה')
+    } catch {
+      toast.error('שגיאה במחיקת הנכס')
+    } finally {
+      setConfirmDeleteId(null)
+    }
   }
 
   return (
     <CRMLayout>
       <Topbar title={`נכסים (${properties.length})`} action={{ label: 'נכס חדש', onClick: () => setShowAdd(true) }} />
+
+      {confirmDeleteId && (
+        <ConfirmDialog
+          message="למחוק נכס זה? פעולה זו אינה ניתנת לביטול."
+          confirmLabel="מחק"
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmDeleteId(null)}
+        />
+      )}
 
       {/* Add Property Modal */}
       {showAdd && (
@@ -110,7 +128,7 @@ export default function PropertiesPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="text-base font-bold text-indigo-400">{fmt(p.price || 0, p.is_rental)}</div>
-                    <button onClick={() => handleDelete(p.id)} className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition text-sm">מחק</button>
+                    <button onClick={() => setConfirmDeleteId(p.id)} className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition text-sm">מחק</button>
                   </div>
                 </div>
               </div>

@@ -1,14 +1,17 @@
 'use client'
-// app/leads/page.tsx
 import { useEffect, useState } from 'react'
 import CRMLayout from '@/components/layout/CRMLayout'
 import Topbar from '@/components/layout/Topbar'
 import LeadDetailPanel from '@/components/leads/LeadDetailPanel'
 import AddLeadModal from '@/components/leads/AddLeadModal'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { IntentBadge, StatusBadge, ScoreBar, Avatar, Spinner, EmptyState } from '@/components/ui'
 import { useCRMStore } from '@/store/crm'
 import { getLeads, deleteLead } from '@/lib/leads'
 import { fmt, intentColor } from '@/lib/utils'
+import { toast } from '@/lib/toast'
+import { useCurrentAgent } from '@/hooks/useCurrentAgent'
+import { canCreateLeads, canDeleteLeads } from '@/lib/auth'
 import type { IntentType, LeadStatus } from '@/types'
 
 const INTENT_OPTS: Array<IntentType | ''> = ['', 'buyer', 'seller', 'renter', 'investor']
@@ -17,11 +20,14 @@ const SORT_OPTS = ['ai_score', 'urgency_score', 'created_at', 'budget_max']
 
 export default function LeadsPage() {
   const { leads, setLeads, leadsLoading, setLeadsLoading, selectedLead, setSelectedLead, removeLead, searchQuery } = useCRMStore()
+  const currentAgent = useCurrentAgent()
+  const role = currentAgent?.role || 'agent'
   const [showAdd, setShowAdd] = useState(false)
   const [intentFilter, setIntentFilter] = useState<IntentType | ''>('')
   const [statusFilter, setStatusFilter] = useState<LeadStatus | ''>('')
   const [cityFilter, setCityFilter] = useState('')
   const [sortBy, setSortBy] = useState('ai_score')
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -33,11 +39,22 @@ export default function LeadsPage() {
     load()
   }, [])
 
-  async function handleDelete(id: string, e: React.MouseEvent) {
+  function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation()
-    if (!confirm('למחוק ליד זה?')) return
-    await deleteLead(id)
-    removeLead(id)
+    setConfirmDeleteId(id)
+  }
+
+  async function confirmDelete() {
+    if (!confirmDeleteId) return
+    try {
+      await deleteLead(confirmDeleteId)
+      removeLead(confirmDeleteId)
+      toast.success('הליד נמחק בהצלחה')
+    } catch {
+      toast.error('שגיאה במחיקת הליד')
+    } finally {
+      setConfirmDeleteId(null)
+    }
   }
 
   let filtered = leads
@@ -54,8 +71,16 @@ export default function LeadsPage() {
 
   return (
     <CRMLayout>
-      <Topbar title={`לידים (${filtered.length})`} action={{ label: 'ליד חדש', onClick: () => setShowAdd(true) }} />
+      <Topbar title={`לידים (${filtered.length})`} action={canCreateLeads(role) ? { label: 'ליד חדש', onClick: () => setShowAdd(true) } : undefined} />
       {showAdd && <AddLeadModal onClose={() => setShowAdd(false)} />}
+      {confirmDeleteId && (
+        <ConfirmDialog
+          message="למחוק ליד זה? פעולה זו אינה ניתנת לביטול."
+          confirmLabel="מחק"
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmDeleteId(null)}
+        />
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Main content */}
@@ -122,8 +147,10 @@ export default function LeadsPage() {
                       <td className="px-3 py-3 w-24"><ScoreBar score={l.ai_score} /></td>
                       <td className="px-3 py-3"><StatusBadge status={l.status} /></td>
                       <td className="px-3 py-3">
-                        <button onClick={e => handleDelete(l.id, e)}
-                          className="text-slate-600 hover:text-red-400 transition text-base px-1">✕</button>
+                        {canDeleteLeads(role) && (
+                          <button onClick={e => handleDelete(l.id, e)}
+                            className="text-slate-600 hover:text-red-400 transition text-base px-1">✕</button>
+                        )}
                       </td>
                     </tr>
                   ))}

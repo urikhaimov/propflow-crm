@@ -1,6 +1,6 @@
 'use client'
-// components/layout/CRMLayout.tsx
 import Sidebar from './Sidebar'
+import Toaster from '@/components/ui/Toaster'
 
 export default function CRMLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,6 +9,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {children}
       </div>
+      <Toaster />
     </div>
   )
 }
