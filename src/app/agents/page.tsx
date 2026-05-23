@@ -63,7 +63,7 @@ export default function AgentsPage() {
         title="ניהול סוכנים"
         action={canManageAgents(currentAgent?.role || '') ? { label: '+ סוכן חדש', onClick: () => router.push('/register') } : undefined}
       />
-      <div className="flex-1 overflow-y-auto p-5" dir="rtl">
+      <div className="flex-1 overflow-y-auto p-3 md:p-5" dir="rtl">
         {loading ? (
           <Spinner />
         ) : agents.length === 0 ? (
@@ -90,7 +90,7 @@ export default function AgentsPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {agents.map((agent, i) => {
                 const stats = agentStats(agent.id)
                 const color = AGENT_COLORS[i % AGENT_COLORS.length]
@@ -134,7 +134,8 @@ export default function AgentsPage() {
 
             <div className="glass rounded-2xl overflow-hidden">
               <div className="px-4 py-3 border-b border-white/5 text-xs text-slate-500 uppercase tracking-wider">ביצועי סוכנים</div>
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[480px]">
                 <thead>
                   <tr className="border-b border-white/5">
                     {['סוכן', 'תפקיד', 'לידים', 'נסגרו', 'המרה', 'הכנסות'].map(h => (
@@ -169,6 +170,7 @@ export default function AgentsPage() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           </>
         )}

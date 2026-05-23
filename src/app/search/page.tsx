@@ -49,8 +49,8 @@ export default function SearchPage() {
   return (
     <CRMLayout>
       <Topbar title="חיפוש חכם AI" />
-      <div className="flex-1 overflow-y-auto p-5" dir="rtl">
-        <div className="grid grid-cols-3 gap-5">
+      <div className="flex-1 overflow-y-auto p-3 md:p-5" dir="rtl">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Left: search + saved */}
           <div className="space-y-4">
             <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4">
@@ -108,7 +108,7 @@ export default function SearchPage() {
           </div>
 
           {/* Right: results */}
-          <div className="col-span-2">
+          <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-3">
               <div className="text-xs text-slate-500 uppercase tracking-wider">
                 {hasSearched ? `${results.length} תוצאות עבור "${query}"` : `כל הלידים (${leads.length})`}

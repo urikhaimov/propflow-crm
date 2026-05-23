@@ -1,11 +1,10 @@
 'use client'
-// components/layout/Sidebar.tsx
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useCRMStore } from '@/store/crm'
 import { supabase } from '@/lib/supabase'
-import { canAccessSettings, canRunDiscovery, canManageAgents } from '@/lib/auth'
+import { canAccessSettings, canRunDiscovery } from '@/lib/auth'
 
 const navItems = [
   { href: '/dashboard', label: 'לוח בקרה', icon: '📊', section: 'main' },
@@ -24,7 +23,7 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { leads, unreadCount } = useCRMStore()
+  const { leads, unreadCount, sidebarOpen, setSidebarOpen } = useCRMStore()
   const hotCount = leads.filter(l => l.ai_score >= 80).length
   const [userName, setUserName] = useState('')
   const [userRole, setUserRole] = useState('')
@@ -49,15 +48,36 @@ export default function Sidebar() {
     router.replace('/login')
   }
 
+  function handleNavClick() {
+    // Close drawer on mobile after navigation
+    setSidebarOpen(false)
+  }
+
   return (
-    <aside className="w-56 bg-slate-900 border-r border-white/5 flex flex-col flex-shrink-0 h-screen">
+    <aside className={`
+      bg-slate-900 border-l border-white/5 flex flex-col flex-shrink-0 h-screen
+      fixed inset-y-0 right-0 z-40 w-64
+      transition-transform duration-300 ease-in-out
+      md:relative md:w-56 md:translate-x-0
+      ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}
+    `}>
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-4 py-5 border-b border-white/5">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-sm">P</div>
-        <div>
-          <div className="font-bold text-sm">PropFlow CRM</div>
-          <div className="text-xs text-slate-500">מנוע לידים AI</div>
+      <div className="flex items-center justify-between px-4 py-5 border-b border-white/5">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-sm">P</div>
+          <div>
+            <div className="font-bold text-sm">PropFlow CRM</div>
+            <div className="text-xs text-slate-500">מנוע לידים AI</div>
+          </div>
         </div>
+        {/* Close button — mobile only */}
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className="md:hidden p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition"
+          aria-label="סגור תפריט"
+        >
+          ✕
+        </button>
       </div>
 
       {/* Nav */}
@@ -69,8 +89,8 @@ export default function Sidebar() {
             <div key={section} className="mb-4">
               <div className="text-xs text-slate-600 px-2 pb-1 uppercase tracking-wider">{labels[section]}</div>
               {items.filter(item => {
-                  if (item.href === '/settings')   return canAccessSettings(userRole)
-                  if (item.href === '/discovery')   return canRunDiscovery(userRole)
+                  if (item.href === '/settings') return canAccessSettings(userRole)
+                  if (item.href === '/discovery') return canRunDiscovery(userRole)
                   return true
                 }).map(item => {
                 const active = pathname === item.href || pathname.startsWith(item.href + '/')
@@ -78,8 +98,8 @@ export default function Sidebar() {
                   : item.badge === 'notif' ? (unreadCount() > 0 ? unreadCount() : null)
                   : item.badge === 'live' ? '●' : null
                 return (
-                  <Link key={item.href} href={item.href}
-                    className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg mb-0.5 text-sm transition-all ${
+                  <Link key={item.href} href={item.href} onClick={handleNavClick}
+                    className={`flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg mb-0.5 text-sm transition-all ${
                       active ? 'bg-indigo-500/15 text-indigo-300' : 'text-slate-400 hover:bg-white/5 hover:text-white'
                     }`}>
                     <span className="text-base">{item.icon}</span>

@@ -151,7 +151,7 @@ export default function SettingsPage() {
   return (
     <CRMLayout>
       <Topbar title="הגדרות ואינטגרציות" />
-      <div className="flex-1 overflow-y-auto p-5" dir="rtl">
+      <div className="flex-1 overflow-y-auto p-3 md:p-5" dir="rtl">
         <div className="max-w-2xl space-y-5">
 
           {/* Lead Capture Form */}

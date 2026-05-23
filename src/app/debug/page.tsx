@@ -86,7 +86,7 @@ export default function DebugPage() {
   return (
     <CRMLayout>
       <Topbar title="אבחון מערכת" />
-      <div className="flex-1 overflow-y-auto p-5" dir="rtl">
+      <div className="flex-1 overflow-y-auto p-3 md:p-5" dir="rtl">
         <div className="max-w-2xl mx-auto space-y-4">
 
           {/* Header */}

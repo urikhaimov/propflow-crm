@@ -37,18 +37,18 @@ export default function DashboardPage() {
       <Topbar title="לוח בקרה" action={{ label: 'ליד חדש', onClick: () => setShowAddLead(true) }} />
       {showAddLead && <AddLeadModal onClose={() => setShowAddLead(false)} />}
 
-      <div className="flex-1 overflow-y-auto p-5" dir="rtl">
+      <div className="flex-1 overflow-y-auto p-3 md:p-5" dir="rtl">
         {leadsLoading ? <Spinner /> : (
           <>
             {/* Stats Row */}
-            <div className="grid grid-cols-4 gap-3 mb-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
               <StatCard icon="🔥" label="לידים חמים" value={stats?.hotLeads || 0} sub="+8 היום" color="#ef4444" />
               <StatCard icon="💰" label="שווי פייפליין" value={`₪${((stats?.pipelineValue || 0) / 1_000_000).toFixed(1)}M`} sub="+12% השבוע" color="#22c55e" />
               <StatCard icon="🤖" label="ממוצע ציון AI" value={stats?.avgAiScore || 0} sub="מכלל הלידים" color="#6366f1" />
               <StatCard icon="⚡" label="לידים היום" value={stats?.leadsToday || 0} sub="מ-6 מקורות" color="#f59e0b" />
             </div>
 
-            <div className="grid grid-cols-3 gap-4 mb-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
               {/* Weekly chart */}
               <div className="glass rounded-2xl p-4">
                 <div className="text-xs text-slate-500 uppercase tracking-wider mb-3">פעילות שבועית</div>
@@ -65,7 +65,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Hot leads */}
-              <div className="glass rounded-2xl p-4 col-span-2">
+              <div className="glass rounded-2xl p-4 md:col-span-2">
                 <div className="text-xs text-slate-500 uppercase tracking-wider mb-3">לידים חמים — עדיפות AI</div>
                 <div className="space-y-3">
                   {hotLeads.length === 0 && <div className="text-sm text-slate-500 text-center py-4">אין לידים עדיין</div>}
@@ -91,7 +91,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Intent breakdown */}
               <div className="glass rounded-2xl p-4">
                 <div className="text-xs text-slate-500 uppercase tracking-wider mb-3">פירוט כוונות</div>

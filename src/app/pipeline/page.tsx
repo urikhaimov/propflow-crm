@@ -42,11 +42,12 @@ export default function PipelinePage() {
   return (
     <CRMLayout>
       <Topbar title="פייפליין מכירות" />
+      {selectedLead && <LeadDetailPanel />}
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Pipeline value bar */}
-          <div className="px-4 pt-3 pb-2 border-b border-white/5" dir="rtl">
-            <div className="flex items-center gap-4 text-sm text-slate-400">
+          <div className="px-4 pt-3 pb-2 border-b border-white/5 overflow-x-auto" dir="rtl">
+            <div className="flex items-center gap-4 text-sm text-slate-400 min-w-max">
               <span>שווי פייפליין כולל: <span className="text-white font-semibold">₪{(total / 1_000_000).toFixed(1)}M</span></span>
               <span>סה״כ לידים: <span className="text-white font-semibold">{leads.length}</span></span>
               <span>נסגרו: <span className="text-green-400 font-semibold">{leads.filter(l => l.status === 'won').length}</span></span>
@@ -54,8 +55,8 @@ export default function PipelinePage() {
           </div>
 
           {leadsLoading ? <Spinner /> : (
-            <div className="flex-1 overflow-x-auto p-4">
-              <div className="flex gap-3 h-full" style={{ minWidth: `${COLUMNS.length * 220}px` }} dir="rtl">
+            <div className="flex-1 overflow-x-auto p-3">
+              <div className="flex gap-3 h-full" style={{ minWidth: `${COLUMNS.length * 200}px` }} dir="rtl">
                 {COLUMNS.map(col => {
                   const colLeads = leads.filter(l => l.status === col.key)
                   const colValue = colLeads.reduce((s, l) => s + (l.budget_max || 0), 0)
@@ -114,7 +115,6 @@ export default function PipelinePage() {
             </div>
           )}
         </div>
-        {selectedLead && <LeadDetailPanel />}
       </div>
     </CRMLayout>
   )

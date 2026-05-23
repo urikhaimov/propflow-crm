@@ -223,8 +223,8 @@ export default function DiscoveryPage() {
         action={{ label: running ? 'סורק…' : '🔍 הפעל סריקה', onClick: runDiscovery }}
       />
 
-      <div className="flex-1 overflow-y-auto p-5" dir="rtl">
-        <div className="grid grid-cols-2 gap-5">
+      <div className="flex-1 overflow-y-auto p-3 md:p-5" dir="rtl">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
           {/* ── LEFT: Config ───────────────────────────────── */}
           <div className="space-y-4">

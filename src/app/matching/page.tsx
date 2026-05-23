@@ -49,7 +49,7 @@ export default function MatchingPage() {
   return (
     <CRMLayout>
       <Topbar title="מנוע התאמה AI" action={{ label: running ? 'מתאים…' : 'הפעל התאמה', onClick: runMatching }} />
-      <div className="flex-1 overflow-y-auto p-5" dir="rtl">
+      <div className="flex-1 overflow-y-auto p-3 md:p-5" dir="rtl">
 
         {/* Explanation */}
         <AIBox title="כיצד פועל מנוע ההתאמה">

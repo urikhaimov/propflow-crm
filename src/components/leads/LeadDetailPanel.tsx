@@ -83,7 +83,12 @@ export default function LeadDetailPanel() {
   }
 
   return (
-    <div className="w-80 bg-slate-900 border-r border-white/5 flex flex-col h-full overflow-y-auto flex-shrink-0" dir="rtl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" dir="rtl">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedLead(null)} />
+
+      {/* Panel */}
+      <div className="relative w-full sm:w-[480px] sm:max-w-[95vw] max-h-[92dvh] sm:max-h-[90vh] bg-slate-900 border border-white/8 sm:rounded-2xl rounded-t-2xl flex flex-col overflow-hidden shadow-2xl">
       {/* Header */}
       <div className="p-4 border-b border-white/5 flex items-start gap-3">
         <Avatar name={`${l.first_name} ${l.last_name}`} color={intentColor(l.intent_type)} size="lg" />
@@ -244,6 +249,7 @@ export default function LeadDetailPanel() {
           </div>
         )}
       </div>
+    </div>
     </div>
   )
 }

@@ -82,11 +82,13 @@ export default function LeadsPage() {
         />
       )}
 
+      {selectedLead && <LeadDetailPanel />}
+
       <div className="flex flex-1 overflow-hidden">
         {/* Main content */}
         <div className="flex-1 overflow-y-auto p-4" dir="rtl">
           {/* Filters */}
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-none">
             <select value={intentFilter} onChange={e => setIntentFilter(e.target.value as IntentType | '')}
               className="px-3 py-1.5 bg-slate-800 border border-white/10 rounded-lg text-sm text-slate-300 outline-none">
               {INTENT_OPTS.map(o => <option key={o} value={o}>{intentLabels[o]}</option>)}
@@ -109,59 +111,92 @@ export default function LeadsPage() {
           {leadsLoading ? <Spinner /> : filtered.length === 0 ? (
             <EmptyState icon="📋" title="אין לידים" desc="הוסיפו ליד ראשון או שנו את הסינון" />
           ) : (
-            <div className="glass rounded-2xl overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-white/5">
-                    {['ליד', 'מקור', 'כוונה', 'עיר', 'תקציב', 'נכס', 'דחיפות', 'ציון AI', 'סטטוס', ''].map(h => (
-                      <th key={h} className="text-right px-3 py-2.5 text-xs text-slate-500 font-medium uppercase tracking-wider">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(l => (
-                    <tr key={l.id}
-                      onClick={() => setSelectedLead(selectedLead?.id === l.id ? null : l)}
-                      className={`border-b border-white/3 cursor-pointer transition ${selectedLead?.id === l.id ? 'bg-indigo-500/10' : 'hover:bg-white/3'}`}>
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-2">
-                          <Avatar name={`${l.first_name} ${l.last_name}`} color={intentColor(l.intent_type)} size="sm" />
-                          <div>
-                            <div className="font-medium">{l.first_name} {l.last_name}</div>
-                            <div className="text-xs text-slate-500">{l.phone || l.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 text-xs text-slate-400">{l.source_platform}</td>
-                      <td className="px-3 py-3"><IntentBadge intent={l.intent_type} /></td>
-                      <td className="px-3 py-3">
-                        <div className="text-sm">{l.city || '—'}</div>
-                        <div className="text-xs text-slate-500">{l.neighborhood}</div>
-                      </td>
-                      <td className="px-3 py-3 text-xs text-slate-300">{fmt(l.budget_min)}–{fmt(l.budget_max)}</td>
-                      <td className="px-3 py-3 text-xs text-slate-400">{l.rooms ? `${l.rooms}חד׳` : '—'} {l.property_type}</td>
-                      <td className="px-3 py-3 w-24">
-                        <ScoreBar score={l.urgency_score} showLabel={false} />
-                        <div className="text-xs text-slate-600 mt-0.5">{l.urgency_score}/100</div>
-                      </td>
-                      <td className="px-3 py-3 w-24"><ScoreBar score={l.ai_score} /></td>
-                      <td className="px-3 py-3"><StatusBadge status={l.status} /></td>
-                      <td className="px-3 py-3">
-                        {canDeleteLeads(role) && (
-                          <button onClick={e => handleDelete(l.id, e)}
-                            className="text-slate-600 hover:text-red-400 transition text-base px-1">✕</button>
-                        )}
-                      </td>
+            <>
+              {/* Mobile: card list */}
+              <div className="md:hidden space-y-2">
+                {filtered.map(l => (
+                  <div key={l.id}
+                    onClick={() => setSelectedLead(selectedLead?.id === l.id ? null : l)}
+                    className={`glass rounded-xl p-3 cursor-pointer transition ${selectedLead?.id === l.id ? 'border-indigo-500/40' : ''}`}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <Avatar name={`${l.first_name} ${l.last_name}`} color={intentColor(l.intent_type)} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">{l.first_name} {l.last_name}</div>
+                        <div className="text-xs text-slate-500">{l.phone || l.email || l.source_platform}</div>
+                      </div>
+                      <IntentBadge intent={l.intent_type} />
+                    </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs text-slate-400">📍 {l.city || '—'}</span>
+                      <span className="text-xs text-slate-500">•</span>
+                      <span className="text-xs text-slate-400">{fmt(l.budget_min)}–{fmt(l.budget_max)}</span>
+                      {l.rooms && <><span className="text-xs text-slate-500">•</span><span className="text-xs text-slate-400">{l.rooms}חד׳</span></>}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1"><ScoreBar score={l.ai_score} /></div>
+                      <StatusBadge status={l.status} />
+                      {canDeleteLeads(role) && (
+                        <button onClick={e => handleDelete(l.id, e)}
+                          className="text-slate-600 hover:text-red-400 transition text-base px-1">✕</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop: table */}
+              <div className="hidden md:block glass rounded-2xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/5">
+                      {['ליד', 'מקור', 'כוונה', 'עיר', 'תקציב', 'נכס', 'דחיפות', 'ציון AI', 'סטטוס', ''].map(h => (
+                        <th key={h} className="text-right px-3 py-2.5 text-xs text-slate-500 font-medium uppercase tracking-wider">{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filtered.map(l => (
+                      <tr key={l.id}
+                        onClick={() => setSelectedLead(selectedLead?.id === l.id ? null : l)}
+                        className={`border-b border-white/3 cursor-pointer transition ${selectedLead?.id === l.id ? 'bg-indigo-500/10' : 'hover:bg-white/3'}`}>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2">
+                            <Avatar name={`${l.first_name} ${l.last_name}`} color={intentColor(l.intent_type)} size="sm" />
+                            <div>
+                              <div className="font-medium">{l.first_name} {l.last_name}</div>
+                              <div className="text-xs text-slate-500">{l.phone || l.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-xs text-slate-400">{l.source_platform}</td>
+                        <td className="px-3 py-3"><IntentBadge intent={l.intent_type} /></td>
+                        <td className="px-3 py-3">
+                          <div className="text-sm">{l.city || '—'}</div>
+                          <div className="text-xs text-slate-500">{l.neighborhood}</div>
+                        </td>
+                        <td className="px-3 py-3 text-xs text-slate-300">{fmt(l.budget_min)}–{fmt(l.budget_max)}</td>
+                        <td className="px-3 py-3 text-xs text-slate-400">{l.rooms ? `${l.rooms}חד׳` : '—'} {l.property_type}</td>
+                        <td className="px-3 py-3 w-24">
+                          <ScoreBar score={l.urgency_score} showLabel={false} />
+                          <div className="text-xs text-slate-600 mt-0.5">{l.urgency_score}/100</div>
+                        </td>
+                        <td className="px-3 py-3 w-24"><ScoreBar score={l.ai_score} /></td>
+                        <td className="px-3 py-3"><StatusBadge status={l.status} /></td>
+                        <td className="px-3 py-3">
+                          {canDeleteLeads(role) && (
+                            <button onClick={e => handleDelete(l.id, e)}
+                              className="text-slate-600 hover:text-red-400 transition text-base px-1">✕</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
 
-        {/* Detail panel */}
-        {selectedLead && <LeadDetailPanel />}
       </div>
     </CRMLayout>
   )

@@ -51,7 +51,7 @@ export const useCRMStore = create<CRMStore>((set, get) => ({
   selectedProperty: null,
   filters: {},
   searchQuery: '',
-  sidebarOpen: true,
+  sidebarOpen: false,
   detailPanelOpen: false,
   leadsLoading: false,
   propertiesLoading: false,
