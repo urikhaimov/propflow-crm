@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 const PUBLIC_PATHS = ['/login', '/register', '/forgot-password', '/reset-password']
 const PUBLIC_PREFIXES = ['/auth/', '/api/', '/capture', '/_next', '/favicon']
 
-export function middleware(req: NextRequest) {
+export default function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   if (

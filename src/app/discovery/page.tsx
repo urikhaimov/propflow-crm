@@ -1,10 +1,10 @@
 'use client'
 // app/discovery/page.tsx — Real lead discovery from Reddit, Google, manual paste
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import CRMLayout from '@/components/layout/CRMLayout'
 import Topbar from '@/components/layout/Topbar'
-import { SectionTitle } from '@/components/ui'
+import { SectionTitle, LocalOnlyBadge } from '@/components/ui'
 import { useCRMStore } from '@/store/crm'
 import { createLead } from '@/lib/leads'
 import { fmt, scoreColor } from '@/lib/utils'
@@ -34,12 +34,14 @@ type DiscoveredLead = {
 }
 
 const SOURCE_CONFIG = [
-  { key: 'reddit',   label: 'Reddit',         emoji: '🌐', desc: 'r/Israel, r/israelrealestate',        free: true },
-  { key: 'yad2',     label: 'יד2',            emoji: '🏡', desc: 'רישומי נדל"ן — קנייה והשכרה',         free: true },
-  { key: 'telegram', label: 'טלגרם',          emoji: '✈️', desc: 'ערוצי נדל"ן ישראלי ציבוריים',        free: true },
-  { key: 'madlan',   label: 'מדלן',           emoji: '🏠', desc: 'מוכרים ומשכירים פעילים',              free: true },
-  { key: 'google',   label: 'Google Search',  emoji: '🔍', desc: '100 חיפושים חינם ביום',              free: true },
-  { key: 'manual',   label: 'הדבקה ידנית',    emoji: '📋', desc: 'פייסבוק, וואטסאפ, כל מקור אחר',     free: true },
+  { key: 'reddit',   label: 'Reddit',         emoji: '🌐', desc: 'r/Israel, r/israelrealestate',              free: true,  localOnly: false },
+  { key: 'yad2',     label: 'יד2',            emoji: '🏡', desc: 'רישומי נדל"ן — קנייה והשכרה',               free: true,  localOnly: false },
+  { key: 'telegram', label: 'טלגרם',          emoji: '✈️', desc: 'ערוצי נדל"ן ישראלי ציבוריים',              free: true,  localOnly: false },
+  { key: 'madlan',   label: 'מדלן',           emoji: '🏠', desc: 'מוכרים ומשכירים פעילים',                    free: true,  localOnly: false },
+  { key: 'google',   label: 'Google Search',  emoji: '🔍', desc: '100 חיפושים חינם ביום',                    free: true,  localOnly: false },
+  { key: 'facebook', label: 'פייסבוק',        emoji: '👥', desc: 'קבוצות נדל"ן — דורש Chrome מחובר מקומית',  free: true,  localOnly: true  },
+  { key: 'url',      label: 'כתובת URL',      emoji: '🔗', desc: 'סרוק כל עמוד ציבורי — יד2, מדלן, פורומים',free: true,  localOnly: true  },
+  { key: 'manual',   label: 'הדבקה ידנית',    emoji: '📋', desc: 'פייסבוק, וואטסאפ, כל מקור אחר',            free: true,  localOnly: false },
 ]
 
 const KEYWORD_PRESETS = [
@@ -65,10 +67,12 @@ function postFingerprint(lead: DiscoveredLead): string {
 export default function DiscoveryPage() {
   const { addLead } = useCRMStore()
 
+  const [isLocal, setIsLocal]           = useState(false)
   const [keyword, setKeyword]           = useState('apartment israel real estate')
   const [selectedSources, setSelected] = useState<string[]>(['reddit', 'manual'])
   const [manualText, setManualText]     = useState('')
   const [manualSource, setManualSource] = useState('facebook')
+  const [scrapeUrls, setScrapeUrls]     = useState('')
   const [running, setRunning]           = useState(false)
   const [leads, setLeads]               = useState<DiscoveredLead[]>([])
   const [stats, setStats]               = useState({ scanned: 0, extracted: 0 })
@@ -76,7 +80,16 @@ export default function DiscoveryPage() {
   const [googleNote, setGoogleNote]     = useState('')
   const [googleApiError, setGoogleApiError] = useState('')
 
+  useEffect(() => {
+    setIsLocal(
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1'
+    )
+  }, [])
+
   function toggleSource(key: string) {
+    const src = SOURCE_CONFIG.find(s => s.key === key)
+    if (src?.localOnly && !isLocal) return
     setSelected(s => s.includes(key) ? s.filter(x => x !== key) : [...s, key])
   }
 
@@ -86,7 +99,7 @@ export default function DiscoveryPage() {
   }
 
   function addLog(msg: string) {
-    setLog(prev => [`${new Date().toLocaleTimeString('he-IL')} — ${msg}`, ...prev.slice(0, 19)])
+    setLog(prev => [`${new Date().toLocaleTimeString('he-IL')} — ${msg}`, ...prev.slice(0, 39)])
   }
 
   async function runDiscovery() {
@@ -116,6 +129,10 @@ export default function DiscoveryPage() {
           sources: selectedSources,
           keyword,
           manualPosts,
+          scrapeUrls: scrapeUrls
+            .split('\n')
+            .map(u => u.trim())
+            .filter(u => u.startsWith('http')),
         }),
       })
 
@@ -233,31 +250,40 @@ export default function DiscoveryPage() {
             <div className="glass rounded-2xl p-4">
               <SectionTitle>מקורות נתונים</SectionTitle>
               <div className="space-y-2">
-                {SOURCE_CONFIG.map(src => (
-                  <div key={src.key}
-                    onClick={() => toggleSource(src.key)}
-                    className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer border transition ${
-                      selectedSources.includes(src.key)
-                        ? 'border-indigo-500/40 bg-indigo-500/10'
-                        : 'border-white/5 hover:border-white/10'
-                    }`}>
-                    <span className="text-xl">{src.emoji}</span>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">{src.label}</div>
-                      <div className="text-xs text-slate-500">{src.desc}</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-green-400">חינם ✓</span>
-                      <div className={`w-4 h-4 rounded border flex items-center justify-center transition ${
-                        selectedSources.includes(src.key)
-                          ? 'bg-indigo-500 border-indigo-500'
-                          : 'border-slate-600'
+                {SOURCE_CONFIG.map(src => {
+                  const blocked = src.localOnly && !isLocal
+                  const active  = selectedSources.includes(src.key)
+                  return (
+                    <div key={src.key}
+                      onClick={() => toggleSource(src.key)}
+                      className={`flex items-center gap-3 p-3 rounded-xl border transition ${
+                        blocked
+                          ? 'opacity-50 cursor-not-allowed border-white/5'
+                          : active
+                            ? 'border-indigo-500/40 bg-indigo-500/10 cursor-pointer'
+                            : 'border-white/5 hover:border-white/10 cursor-pointer'
                       }`}>
-                        {selectedSources.includes(src.key) && <span className="text-white text-xs">✓</span>}
+                      <span className="text-xl">{src.emoji}</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium">{src.label}</span>
+                          {src.localOnly && !isLocal && <LocalOnlyBadge />}
+                        </div>
+                        <div className="text-xs text-slate-500">{src.desc}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!src.localOnly && <span className="text-xs text-green-400">חינם ✓</span>}
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition ${
+                          active && !blocked
+                            ? 'bg-indigo-500 border-indigo-500'
+                            : 'border-slate-600'
+                        }`}>
+                          {active && !blocked && <span className="text-white text-xs">✓</span>}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
 
@@ -279,6 +305,26 @@ export default function DiscoveryPage() {
                 ))}
               </div>
             </div>
+
+            {/* URL scraper */}
+            {selectedSources.includes('url') && (
+              <div className="glass rounded-2xl p-4">
+                <SectionTitle>🔗 סריקת כתובות URL</SectionTitle>
+                <p className="text-xs text-slate-500 mb-3">
+                  הכניסו כתובת URL בכל שורה — Playwright יפתח את הדף ו-Claude יחלץ לידים.
+                  עובד עם יד2, מדלן, פורומים, ועמודים שמשתמשים ב-JavaScript.
+                </p>
+                <textarea
+                  value={scrapeUrls}
+                  onChange={e => setScrapeUrls(e.target.value)}
+                  placeholder={'https://www.yad2.co.il/item/abc123\nhttps://www.madlan.co.il/listing/xyz'}
+                  className="w-full px-3 py-2.5 bg-slate-800 border border-white/10 rounded-lg text-sm outline-none focus:border-indigo-500 resize-none font-mono"
+                  rows={3}
+                  dir="ltr"
+                />
+                <p className="text-xs text-slate-600 mt-1">עד 5 כתובות לריצה</p>
+              </div>
+            )}
 
             {/* Manual paste */}
             {selectedSources.includes('manual') && (
@@ -305,6 +351,26 @@ export default function DiscoveryPage() {
                   className="w-full px-3 py-2.5 bg-slate-800 border border-white/10 rounded-lg text-sm outline-none focus:border-indigo-500 resize-none"
                   rows={4}
                 />
+              </div>
+            )}
+
+            {/* Facebook setup instructions */}
+            {selectedSources.includes('facebook') && isLocal && (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-200">
+                <div className="font-semibold mb-2">👥 פייסבוק — הגדרה נדרשת</div>
+                <p className="text-amber-200/80 mb-2">
+                  Chrome מצפין את הקוקיות שלו בזמן ריצה, כך שלא ניתן לגשת לפייסבוק דרך הפרופיל הרגיל.
+                </p>
+                <p className="text-amber-200/80 font-medium mb-1">פתרון — פרופיל Chrome נפרד לסריקה:</p>
+                <ol className="list-decimal list-inside space-y-1 text-amber-200/70">
+                  <li>פתח Chrome ← תפריט ← "Add profile" ← קרא לו "PropFlow"</li>
+                  <li>בפרופיל PropFlow — היכנס לפייסבוק</li>
+                  <li>סגור את חלון פרופיל PropFlow (חשוב!)</li>
+                  <li>הרץ סריקה — הסקריפר יפתח את פרופיל PropFlow ב-background</li>
+                </ol>
+                <p className="text-amber-200/60 mt-2">
+                  בינתיים — השתמש ב<strong>הדבקה ידנית</strong> להביא פוסטים מפייסבוק.
+                </p>
               </div>
             )}
 

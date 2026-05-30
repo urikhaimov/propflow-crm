@@ -40,6 +40,9 @@ Thumbs.db
 .temp/
 tmp/
 
+# playwright browser sessions (contain login cookies — never commit)
+.cookies/
+
 # testing
 coverage/
 
@@ -48,6 +51,9 @@ coverage/
 
 # supabase
 .supabase/
+
+# Claude Code local settings (machine-specific permissions)
+.claude/settings.local.json
 
 # misc
 .idea/

@@ -110,6 +110,17 @@ export function EmptyState({ icon, title, desc }: { icon: string; title: string;
   )
 }
 
+// ─── LOCAL-ONLY BADGE ─────────────────────────────────────────
+export function LocalOnlyBadge() {
+  return (
+    <span
+      title="פיצ׳ר זה מחייב הפעלה מקומית (npm run dev). בפריסת Vercel הדפדפן רץ על השרת שלהם, לא על המחשב שלך — ולכן אין גישה לחשבון הפייסבוק/טלגרם שלך."
+      className="text-xs px-2 py-0.5 bg-amber-500/15 text-amber-400 border border-amber-500/20 rounded-full cursor-help select-none">
+      מקומי בלבד
+    </span>
+  )
+}
+
 // ─── SECTION TITLE ────────────────────────────────────────────
 export function SectionTitle({ children }: { children: React.ReactNode }) {
   return (

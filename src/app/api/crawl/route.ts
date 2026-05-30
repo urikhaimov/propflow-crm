@@ -180,6 +180,58 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── Facebook groups (local only — uses Chrome profile) ──────
+  if (sources.includes('facebook')) {
+    try {
+      const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const res = await fetch(`${base}/api/facebook-groups`, { cache: 'no-store' })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.localOnly) {
+          debugLog.push('facebook: requires local run — skipped on Vercel')
+        } else {
+          if (data.debug?.length) data.debug.forEach((l: string) => debugLog.push(`  facebook: ${l}`))
+          for (const post of data.posts || []) {
+            rawPosts.push({ text: `${post.title}\n${post.body}`.trim(), source: 'facebook', url: post.url })
+          }
+          debugLog.push(`facebook returned ${data.posts?.length || 0} posts`)
+        }
+      } else {
+        debugLog.push(`facebook fetch failed: HTTP ${res.status}`)
+      }
+    } catch (err) {
+      debugLog.push(`facebook error: ${String(err)}`)
+    }
+  }
+
+  // ── URL scrape (Playwright, local only) ─────────────────────
+  if (sources.includes('url')) {
+    const urlList: string[] = body.scrapeUrls || []
+    for (const scrapeUrl of urlList.slice(0, 5)) {
+      try {
+        const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+        const res = await fetch(`${base}/api/scrape`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: scrapeUrl, useProfile: false }),
+          cache: 'no-store',
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.text) {
+            rawPosts.push({ text: data.text, source: 'crawler', url: scrapeUrl })
+            debugLog.push(`url scraped: ${scrapeUrl.substring(0, 60)} (${data.text.length} chars)`)
+          }
+        } else {
+          const err = await res.json().catch(() => ({}))
+          debugLog.push(`url scrape failed (${scrapeUrl.substring(0, 40)}): ${(err as { message?: string }).message || `HTTP ${res.status}`}`)
+        }
+      } catch (err) {
+        debugLog.push(`url scrape error: ${String(err)}`)
+      }
+    }
+  }
+
   // ── Google ──────────────────────────────────────────────────
   if (sources.includes('google')) {
     try {

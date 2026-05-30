@@ -4,6 +4,7 @@
 // Every RENTAL listing is a landlord — a potential investor/seller lead.
 // We try __NEXT_DATA__ first (Madlan runs on Next.js), then JSON-LD, then regex.
 import { NextResponse } from 'next/server'
+import { scrapeMadlanWithApify } from '@/lib/apify'
 
 const MADLAN_URLS = [
   { url: 'https://www.madlan.co.il/for-sale/israel', intent: 'seller' },
@@ -150,6 +151,14 @@ export async function GET() {
     } catch {
       continue
     }
+  }
+
+  // ── Apify fallback — used when plain HTTP returns 0 (blocked or structure changed) ──
+  if (posts.length === 0 && process.env.APIFY_TOKEN) {
+    try {
+      const apifyPosts = await scrapeMadlanWithApify(15)
+      posts.push(...apifyPosts)
+    } catch { /* silent — Apify is optional */ }
   }
 
   return NextResponse.json({

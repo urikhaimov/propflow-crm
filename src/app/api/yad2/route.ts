@@ -1,11 +1,36 @@
 import { NextResponse } from 'next/server'
+import { scrapeYad2WithApify } from '@/lib/apify'
 
-const HEADERS = {
+const BASE_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
-  'Accept': 'application/json, text/plain, */*',
   'Accept-Language': 'he-IL,he;q=0.9,en;q=0.8',
   'Referer': 'https://www.yad2.co.il/',
   'Origin': 'https://www.yad2.co.il',
+}
+
+// Fetch the Yad2 homepage to receive session cookies Cloudflare expects on API calls.
+async function getSessionCookie(): Promise<string> {
+  try {
+    const res = await fetch('https://www.yad2.co.il/', {
+      headers: { ...BASE_HEADERS, Accept: 'text/html,application/xhtml+xml' },
+      cache: 'no-store',
+      redirect: 'follow',
+    })
+    const raw = res.headers.get('set-cookie') || ''
+    // Extract cookie name=value pairs (strip attributes like Path, Domain, SameSite…)
+    return raw
+      .split(/,(?=[^ ])/)
+      .map(c => c.split(';')[0].trim())
+      .filter(Boolean)
+      .join('; ')
+  } catch {
+    return ''
+  }
+}
+
+const HEADERS = {
+  ...BASE_HEADERS,
+  'Accept': 'application/json, text/plain, */*',
 }
 
 const TARGETS = [
@@ -51,11 +76,18 @@ export async function GET() {
   const seen  = new Set<string>()
   const debug: string[] = []
 
+  // Seed Cloudflare session cookies by visiting the homepage first
+  const sessionCookie = await getSessionCookie()
+  const headersWithCookie = sessionCookie
+    ? { ...HEADERS, Cookie: sessionCookie }
+    : HEADERS
+  debug.push(`yad2 session cookie: ${sessionCookie ? `${sessionCookie.substring(0, 60)}…` : 'none'}`)
+
   for (const { path, label } of TARGETS) {
     // Try JSON API first
     const apiUrl = `https://gw.yad2.co.il/feed-search-legacy/realestate/${path}?priceOnly=0&page=1&rows=20&img=1`
     try {
-      const res = await fetch(apiUrl, { headers: HEADERS, cache: 'no-store' })
+      const res = await fetch(apiUrl, { headers: headersWithCookie, cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         const items: Yad2Item[] = data?.data?.feed?.feed_items || []
@@ -82,7 +114,7 @@ export async function GET() {
     const htmlUrl = `https://www.yad2.co.il/realestate/${path}`
     try {
       const res = await fetch(htmlUrl, {
-        headers: { ...HEADERS, Accept: 'text/html,application/xhtml+xml' },
+        headers: { ...headersWithCookie, Accept: 'text/html,application/xhtml+xml' },
         cache: 'no-store',
       })
       if (!res.ok) { debug.push(`yad2 ${path} HTML: HTTP ${res.status}`); continue }
@@ -106,6 +138,20 @@ export async function GET() {
     } catch (err) {
       debug.push(`yad2 ${path} HTML error: ${String(err).substring(0, 60)}`)
     }
+  }
+
+  // ── Apify fallback — used when plain HTTP returns 0 (blocked or structure changed) ──
+  if (posts.length === 0 && process.env.APIFY_TOKEN) {
+    debug.push('yad2 plain HTTP returned 0 posts — trying Apify fallback...')
+    try {
+      const apifyPosts = await scrapeYad2WithApify(15)
+      posts.push(...apifyPosts)
+      debug.push(`yad2 Apify fallback: ${apifyPosts.length} posts`)
+    } catch (err) {
+      debug.push(`yad2 Apify fallback error: ${String(err).substring(0, 60)}`)
+    }
+  } else if (posts.length === 0) {
+    debug.push('yad2: 0 posts — add APIFY_TOKEN to .env.local to enable Apify fallback')
   }
 
   return NextResponse.json({ source: 'yad2', count: posts.length, posts, debug })

@@ -339,6 +339,13 @@ GOOGLE_SEARCH_API_KEY=AIzaSy...
 GOOGLE_SEARCH_ENGINE_ID=1234567890abc...
 # Setup: https://developers.google.com/custom-search/v1/overview
 # If not set, Google source silently skipped (no error shown to user)
+
+# ── Optional: Apify — fallback scraper for Yad2 + Madlan ──────
+APIFY_TOKEN=apify_api_...
+# Get token at https://console.apify.com/account/integrations
+# Used by /api/yad2 and /api/madlan as fallback when plain HTTP returns 0 posts
+# Cost: ~$5 / 1,000 results. Actors used: swerve/yad2-scraper, swerve/madlan-scraper
+# If not set, Apify fallback is silently skipped
 ```
 
 ---
