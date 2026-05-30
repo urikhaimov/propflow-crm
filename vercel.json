@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/crawl/auto?sources=reddit,alljobs,madlan",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 8 * * *"
     }
   ]
 }
