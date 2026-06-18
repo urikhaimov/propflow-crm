@@ -245,3 +245,37 @@ export async function scrapeRedditWithApify(maxItems = 30): Promise<ApifyPost[]>
 
   return posts
 }
+
+// Telegram also blocks Vercel's datacenter IPs on the public t.me/s/ preview —
+// works fine from a residential IP (verified locally) but redirects/empties out
+// from Vercel. automation-lab/telegram-scraper is pay-per-event, no rental needed.
+export async function scrapeTelegramWithApify(channels: string[], maxMessages = 20): Promise<ApifyPost[]> {
+  const items = await runActor('automation-lab/telegram-scraper', {
+    channels,
+    maxMessages,
+    includeChannelInfo: false,
+  }, channels.length * maxMessages)
+
+  const posts: ApifyPost[] = []
+  const seen = new Set<string>()
+
+  for (const raw of items) {
+    const item = raw as Record<string, unknown>
+    const text = pick(item, 'text')
+    if (!text) continue
+    const fp = text.substring(0, 60)
+    if (seen.has(fp)) continue
+    seen.add(fp)
+
+    const channel = pick(item, 'channelUsername', 'channelTitle')
+    const url = pick(item, 'url') || 'https://t.me'
+
+    posts.push({
+      title: text.split('\n')[0].substring(0, 120),
+      body: `[טלגרם @${channel || 'unknown'}] ${text}`.substring(0, 500),
+      url,
+    })
+  }
+
+  return posts
+}

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { scrapeTelegramWithApify } from '@/lib/apify'
 
 // Public Israeli real estate Telegram channels accessible via t.me/s/
 // israelrealestate/nadlan_il/realestate_israel are news/journalism (Globes,
@@ -96,6 +97,20 @@ export async function GET() {
     } catch (err) {
       debug.push(`@${channel}: error — ${String(err).substring(0, 60)}`)
     }
+  }
+
+  // ── Apify fallback — Telegram blocks Vercel's datacenter IPs on t.me/s/ ──
+  if (posts.length === 0 && process.env.APIFY_TOKEN) {
+    debug.push('telegram plain HTTP returned 0 posts (likely IP-blocked) — trying Apify fallback...')
+    try {
+      const apifyPosts = await scrapeTelegramWithApify(CHANNELS, 15)
+      posts.push(...apifyPosts)
+      debug.push(`telegram Apify fallback: ${apifyPosts.length} posts`)
+    } catch (err) {
+      debug.push(`telegram Apify fallback error: ${String(err).substring(0, 100)}`)
+    }
+  } else if (posts.length === 0) {
+    debug.push('telegram: 0 posts — add APIFY_TOKEN to .env.local to enable Apify fallback')
   }
 
   return NextResponse.json({ source: 'telegram', count: posts.length, posts, debug })
