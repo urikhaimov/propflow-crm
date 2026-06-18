@@ -6,6 +6,12 @@
 import { NextResponse } from 'next/server'
 import { scrapeMadlanWithApify } from '@/lib/apify'
 
+// Note: a stealth Puppeteer fallback was tried here (same approach that
+// worked for Yad2) but Madlan runs PerimeterX, which serves an interactive
+// CAPTCHA challenge page to headless browsers regardless of stealth patches —
+// confirmed by inspecting the rendered page directly. Not worth the wasted
+// 10-25s per request when it always fails; goes straight to Apify instead.
+
 const MADLAN_URLS = [
   { url: 'https://www.madlan.co.il/for-sale/israel', intent: 'seller' },
   { url: 'https://www.madlan.co.il/for-rent/israel',  intent: 'investor' },
@@ -119,6 +125,14 @@ function fromRegex(html: string): RawListing[] {
   return listings.slice(0, 30)
 }
 
+// Try extraction strategies in order of reliability
+function extractListings(html: string): RawListing[] {
+  let listings = fromNextData(html)
+  if (listings.length === 0) listings = fromJsonLd(html)
+  if (listings.length === 0) listings = fromRegex(html)
+  return listings
+}
+
 export async function GET(req: Request) {
   const params = new URL(req.url).searchParams
   const city = params.get('city')
@@ -129,39 +143,41 @@ export async function GET(req: Request) {
   const dealTypeParam = params.get('dealType')
   const posts: Array<{ title: string; body: string; url: string }> = []
   const seen = new Set<string>()
+  const debug: string[] = []
 
   for (const { url, intent } of MADLAN_URLS) {
+    let listings: RawListing[] = []
     try {
       const res = await fetch(url, { headers: HEADERS, cache: 'no-store' })
-      if (!res.ok) continue
-      const html = await res.text()
-
-      // Try extraction strategies in order of reliability
-      let listings = fromNextData(html)
-      if (listings.length === 0) listings = fromJsonLd(html)
-      if (listings.length === 0) listings = fromRegex(html)
-
-      for (const listing of listings) {
-        if (!listing.title && !listing.body) continue
-        const fp = `${listing.title}${listing.body}`.substring(0, 60)
-        if (seen.has(fp)) continue
-        seen.add(fp)
-
-        // Annotate with intent hint so Claude has more context
-        const intentLabel = intent === 'seller' ? 'נכס למכירה' : 'נכס להשכרה'
-        posts.push({
-          title: listing.title,
-          body: `[${intentLabel} — מדלן] ${listing.body}`,
-          url: listing.url || url,
-        })
+      if (res.ok) {
+        listings = extractListings(await res.text())
+        if (listings.length === 0) debug.push(`madlan ${intent}: plain HTTP returned 0 listings (blocked by PerimeterX)`)
+      } else {
+        debug.push(`madlan ${intent}: HTTP ${res.status}`)
       }
-    } catch {
-      continue
+    } catch (err) {
+      debug.push(`madlan ${intent} error: ${String(err).substring(0, 60)}`)
+    }
+
+    for (const listing of listings) {
+      if (!listing.title && !listing.body) continue
+      const fp = `${listing.title}${listing.body}`.substring(0, 60)
+      if (seen.has(fp)) continue
+      seen.add(fp)
+
+      // Annotate with intent hint so Claude has more context
+      const intentLabel = intent === 'seller' ? 'נכס למכירה' : 'נכס להשכרה'
+      posts.push({
+        title: listing.title,
+        body: `[${intentLabel} — מדלן] ${listing.body}`,
+        url: listing.url || url,
+      })
     }
   }
 
-  // ── Apify fallback — used when plain HTTP returns 0 (blocked or structure changed) ──
+  // ── Apify fallback — plain HTTP is blocked by PerimeterX, no free workaround found ──
   if (posts.length === 0 && process.env.APIFY_TOKEN) {
+    debug.push('madlan: plain HTTP blocked — trying Apify fallback...')
     try {
       const apifyPosts = await scrapeMadlanWithApify(15, {
         cities: city ? [city] : undefined,
@@ -172,12 +188,16 @@ export async function GET(req: Request) {
         dealType: dealTypeParam === 'buy' || dealTypeParam === 'rent' ? dealTypeParam : undefined,
       })
       posts.push(...apifyPosts)
-    } catch { /* silent — Apify is optional */ }
+      debug.push(`madlan Apify fallback: ${apifyPosts.length} posts`)
+    } catch (err) {
+      debug.push(`madlan Apify fallback error: ${String(err).substring(0, 80)}`)
+    }
   }
 
   return NextResponse.json({
     source: 'madlan',
     count: posts.length,
     posts,
+    debug,
   })
 }
