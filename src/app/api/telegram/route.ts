@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server'
 
 // Public Israeli real estate Telegram channels accessible via t.me/s/
-// Note: these are news/journalism channels (Globes, TheMarker reposts), not
-// classifieds — most active buy/sell/rent communities on Telegram are private
-// groups requiring a join link, which this public-preview scraper can't reach.
+// israelrealestate/nadlan_il/realestate_israel are news/journalism (Globes,
+// TheMarker reposts) — low lead yield but functional. menivimnet and
+// jeremy_public are actual listing feeds (commercial sales / Tel Aviv
+// rentals respectively) with structured price/rooms/address/phone — high
+// lead yield. Most buy/sell/rent communities are private join-link groups,
+// which this public-preview scraper can't reach.
 const CHANNELS = [
   'israelrealestate',
   'nadlan_il',
   'realestate_israel',
+  'menivimnet',
+  'jeremy_public',
 ]
 
 const HEADERS = {
