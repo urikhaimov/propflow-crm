@@ -45,9 +45,9 @@ const SOURCE_CONFIG = [
 ]
 
 const KEYWORD_PRESETS = [
-  'apartment israel buy', 'דירה לקנייה תל אביב', 'דירה להשכרה ירושלים',
-  'מוכר דירה חיפה', 'investment property israel', 'looking for apartment tel aviv',
-  'need 4 room apartment', 'דירה 4 חדרים', 'villa for sale israel',
+  'דירה לקנייה תל אביב', 'דירה להשכרה ירושלים', 'מוכר דירה חיפה',
+  'דירה 4 חדרים', 'מחפש דירה להשקעה', 'וילה למכירה',
+  'מעוניין לקנות דירה', 'דירה 3 חדרים להשכרה', 'מחפש דירה ברמת גן',
 ]
 
 const SEEN_KEY = 'propflow_seen_posts'
