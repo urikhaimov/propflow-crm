@@ -63,3 +63,4 @@ coverage/
 # package managers
 .pnpm-store/
 .yarn/
+.vercel

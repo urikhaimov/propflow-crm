@@ -88,8 +88,7 @@ export async function POST(req: NextRequest) {
   // Structured filters parsed from the search keyword — scopes Yad2/Madlan
   // instead of always pulling from 5 default major cities regardless of input.
   const filters = extractSearchFilters(keyword)
-  const filterSummary = Object.entries(filters).filter(([, v]) => v != null).map(([k, v]) => `${k}=${v}`).join(', ')
-  if (filterSummary) debugLog.push(`keyword "${keyword}" → filters: ${filterSummary}`)
+  debugLog.push(`DEBUG raw keyword: "${keyword}" (len ${keyword.length}) → filters: ${JSON.stringify(filters)}`)
 
   function buildFilteredUrl(base: string, path: string): string {
     const qs = new URLSearchParams()
