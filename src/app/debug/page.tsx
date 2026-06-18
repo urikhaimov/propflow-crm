@@ -128,7 +128,6 @@ export default function DebugPage() {
                   <Row label="ANTHROPIC_API_KEY" value={t.env?.anthropic_key} ok={t.env?.anthropic_key?.startsWith('✓')} />
                   <Row label="NEXT_PUBLIC_APP_URL" value={t.env?.app_url} />
                   <Row label="SUPABASE_URL" value={t.env?.supabase_url} ok={t.env?.supabase_url?.startsWith('✓')} />
-                  <Row label="GOOGLE_SEARCH (אופציונלי)" value={t.env?.google_key} />
                 </div>
               </TestCard>
 

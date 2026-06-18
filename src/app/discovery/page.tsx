@@ -38,7 +38,6 @@ const SOURCE_CONFIG = [
   { key: 'yad2',     label: 'יד2',            emoji: '🏡', desc: 'רישומי נדל"ן — קנייה והשכרה',               free: true,  localOnly: false },
   { key: 'telegram', label: 'טלגרם',          emoji: '✈️', desc: 'ערוצי נדל"ן ישראלי ציבוריים',              free: true,  localOnly: false },
   { key: 'madlan',   label: 'מדלן',           emoji: '🏠', desc: 'מוכרים ומשכירים פעילים',                    free: true,  localOnly: false },
-  { key: 'google',   label: 'Google Search',  emoji: '🔍', desc: '100 חיפושים חינם ביום',                    free: true,  localOnly: false },
   { key: 'facebook', label: 'פייסבוק',        emoji: '👥', desc: 'קבוצות נדל"ן — דורש Chrome מחובר מקומית',  free: true,  localOnly: true  },
   { key: 'url',      label: 'כתובת URL',      emoji: '🔗', desc: 'סרוק כל עמוד ציבורי — יד2, מדלן, פורומים',free: true,  localOnly: true  },
   { key: 'manual',   label: 'הדבקה ידנית',    emoji: '📋', desc: 'פייסבוק, וואטסאפ, כל מקור אחר',            free: true,  localOnly: false },
@@ -77,8 +76,6 @@ export default function DiscoveryPage() {
   const [leads, setLeads]               = useState<DiscoveredLead[]>([])
   const [stats, setStats]               = useState({ scanned: 0, extracted: 0 })
   const [log, setLog]                   = useState<string[]>([])
-  const [googleNote, setGoogleNote]     = useState('')
-  const [googleApiError, setGoogleApiError] = useState('')
 
   useEffect(() => {
     setIsLocal(
@@ -108,8 +105,6 @@ export default function DiscoveryPage() {
     setLeads([])
     setLog([])
     setStats({ scanned: 0, extracted: 0 })
-    setGoogleNote('')
-    setGoogleApiError('')
 
     addLog('מתחיל סריקה...')
 
@@ -119,7 +114,6 @@ export default function DiscoveryPage() {
 
     if (manualPosts.length) addLog(`נוספו ${manualPosts.length} פוסטים ידניים`)
     if (selectedSources.includes('reddit')) addLog('סורק Reddit...')
-    if (selectedSources.includes('google')) addLog('סורק Google Search...')
 
     try {
       const res = await fetch('/api/crawl', {
@@ -138,14 +132,9 @@ export default function DiscoveryPage() {
 
       const data = await res.json()
 
-      if (data.googleNote) setGoogleNote(data.googleNote)
-
       // Show every backend debug line so the user sees exactly what happened
       if (data.debug?.length) {
-        data.debug.forEach((line: string) => {
-          addLog(line)
-          if (line.includes('403 PERMISSION_DENIED')) setGoogleApiError('403')
-        })
+        data.debug.forEach((line: string) => addLog(line))
       }
 
       addLog(`✔ נסרקו ${data.scanned} פוסטים סה"כ`)
@@ -371,43 +360,6 @@ export default function DiscoveryPage() {
                 <p className="text-amber-200/60 mt-2">
                   בינתיים — השתמש ב<strong>הדבקה ידנית</strong> להביא פוסטים מפייסבוק.
                 </p>
-              </div>
-            )}
-
-            {/* Google API not enabled error */}
-            {googleApiError === '403' && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-xs text-red-300">
-                <div className="font-semibold mb-1">⚠️ Google Search — ה-API לא מופעל</div>
-                <p className="text-red-300/80 mb-2">
-                  המפתח קיים אך ה-Custom Search API לא הופעל בפרויקט Google Cloud שלך.
-                </p>
-                <ol className="list-decimal list-inside space-y-1 text-red-300/70 mb-2">
-                  <li>לך ל-Google Cloud Console</li>
-                  <li>APIs &amp; Services → Library</li>
-                  <li>חפש "Custom Search API" ולחץ Enable</li>
-                </ol>
-                <a href="https://console.cloud.google.com/apis/library/customsearch.googleapis.com"
-                  target="_blank" rel="noreferrer"
-                  className="text-indigo-400 hover:underline block">
-                  פתח Google Cloud Console ← (Enable Custom Search API)
-                </a>
-              </div>
-            )}
-
-            {/* Google keys not configured */}
-            {googleNote && !googleApiError && (
-              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-300">
-                <div className="font-semibold mb-1">⚙️ Google Search — הגדרה נדרשת</div>
-                <div className="text-amber-400/80 mb-2">הוסיפו ל-.env.local:</div>
-                <code className="block bg-slate-900 p-2 rounded text-xs text-green-400 leading-relaxed">
-                  GOOGLE_SEARCH_API_KEY=your-key<br/>
-                  GOOGLE_SEARCH_ENGINE_ID=your-cx-id
-                </code>
-                <a href="https://developers.google.com/custom-search/v1/overview"
-                  target="_blank" rel="noreferrer"
-                  className="text-indigo-400 hover:underline mt-1 block">
-                  הוראות הגדרה ←
-                </a>
               </div>
             )}
 

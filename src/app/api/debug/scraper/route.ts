@@ -28,7 +28,6 @@ export async function GET() {
     name: 'Environment variables',
     anthropic_key: apiKey ? `✓ set (${apiKey.substring(0, 12)}...)` : '✗ missing',
     app_url: base,
-    google_key: process.env.GOOGLE_SEARCH_API_KEY ? '✓ set' : '✗ not set (optional)',
     supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL ? '✓ set' : '✗ missing',
   }
 

@@ -44,9 +44,8 @@ crm-agency/                              ← project root (NO src/ folder — se
 │   ├── notifications/page.tsx           ← Notification feed; reads from Supabase, falls back to mock
 │   └── api/
 │       ├── ai/route.ts                  ← POST — Claude proxy; injects API key, enforces model, max_tokens
-│       ├── crawl/route.ts               ← POST — orchestrates Reddit+Google+manual → Claude extraction
-│       ├── reddit/route.ts              ← GET  — Reddit public JSON API, intent-keyword filtered
-│       └── google-search/route.ts       ← GET  — Google Custom Search API (optional, 100/day free)
+│       ├── crawl/route.ts               ← POST — orchestrates Reddit+Yad2+Madlan+manual → Claude extraction
+│       └── reddit/route.ts              ← GET  — Reddit public JSON API, intent-keyword filtered
 ├── components/
 │   ├── layout/
 │   │   ├── Sidebar.tsx                  ← Nav links, hot-lead badge (ai_score≥80), unread notif badge
@@ -281,7 +280,6 @@ discovery/page.tsx
   └─ POST /api/crawl { sources[], keyword, manualPosts[] }
        ├─ manual posts → always processed first, no limit
        ├─ GET /api/reddit → filters by 30+ intent keywords → up to 30 posts
-       ├─ GET /api/google-search → up to 20 results (if configured)
        └─ Claude extraction loop (cap: manual + 15 crawler posts per run)
             └─ Returns { scanned, extracted, leads[] }
 
@@ -293,7 +291,6 @@ User → clicks "+ הוסף ל-CRM" → createLead() → Supabase → addLead(st
 |---|---|---|---|---|
 | Manual paste | `manual` | None | Unlimited | Always processed; paste any text from any platform |
 | Reddit | `reddit` | None | 30 posts/run | Public `.json` API; targets r/israelrealestate, r/Israel, r/telaviv, r/Jerusalem |
-| Google Custom Search | `google` | API Key + CX ID | 100/day free | Returns snippet only — enough for Claude extraction |
 
 ### Reddit Intent Filter
 Posts must match ≥1 keyword before being sent to Claude (saves API costs):
@@ -332,17 +329,14 @@ ANTHROPIC_API_KEY=sk-ant-api03-...
 # ── Required for Discovery crawler internal calls ─────────────
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 # Change to https://yourdomain.com in production
-# Used in /api/crawl to call /api/reddit and /api/google-search internally
+# Used in /api/crawl to call /api/reddit, /api/yad2, /api/madlan internally
 
-# ── Optional: Google Search (100 free queries/day) ────────────
-GOOGLE_SEARCH_API_KEY=AIzaSy...
-GOOGLE_SEARCH_ENGINE_ID=1234567890abc...
-# Setup: https://developers.google.com/custom-search/v1/overview
-# If not set, Google source silently skipped (no error shown to user)
-
-# ── Optional: Apify — fallback scraper for Yad2 + Madlan ──────
+# ── Optional: Apify — fallback scraper for Yad2 + Madlan + Reddit ──
 APIFY_TOKEN=apify_api_...
 # Get token at https://console.apify.com/account/integrations
+# Note: Google Custom Search JSON API was dropped as a source — Google closed
+# it to new customers in early 2026, returning a permanent 403 on any newly
+# created project/key/search-engine combination (not fixable via configuration).
 # Used by /api/yad2 and /api/madlan as fallback when plain HTTP returns 0 posts
 # Cost: ~$5 / 1,000 results. Actors used: swerve/yad2-scraper, swerve/madlan-scraper
 # If not set, Apify fallback is silently skipped
@@ -549,7 +543,8 @@ fmt(null)            // → "—"
 | AI returns 0 leads from Reddit | Posts matched Reddit fetch but not real estate intent | ✅ Resolved | `/api/reddit` pre-filters with 30+ intent keywords before sending to Claude |
 | AI calls blocked by browser CORS | Calling Anthropic directly from client | ✅ Resolved | All calls go through `/api/ai` server route |
 | Discovery manual paste ignored | Not processed when Reddit also selected | ✅ Resolved | `/api/crawl` always processes manual posts first, unconditionally |
-| Google Search finds 0 leads | `GOOGLE_SEARCH_API_KEY` / `GOOGLE_SEARCH_ENGINE_ID` not set | ⚠️ Config needed | Add both keys to `.env.local`; route shows setup instructions if missing |
+| Reddit/Yad2/Madlan return 0 posts on Vercel | Sites block Vercel's datacenter IPs (HTTP 403) | ✅ Resolved | Apify fallback (`lib/apify.ts`) kicks in automatically when plain HTTP returns 0 |
+| Google Search dropped entirely | Google closed Custom Search JSON API to new customers (2026) — permanent 403 on any new project/key/cx, unfixable | ❌ Removed | Source deleted from discovery page, `/api/crawl`, and `/api/google-search` route |
 
 ---
 

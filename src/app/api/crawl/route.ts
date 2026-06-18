@@ -251,31 +251,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Google ──────────────────────────────────────────────────
-  if (sources.includes('google')) {
-    try {
-      const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-      const res = await fetch(`${base}/api/google-search?keyword=${encodeURIComponent(keyword)}`, { cache: 'no-store' })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.configured) {
-          if (data.debug?.length) data.debug.forEach((l: string) => debugLog.push(`  google: ${l}`))
-          for (const post of data.posts || []) {
-            rawPosts.push({ text: `${post.title}\n${post.body}`.trim(), source: 'google', url: post.url })
-          }
-          debugLog.push(`google returned ${data.posts?.length || 0} posts`)
-        } else if (data.apiError) {
-          debugLog.push(`google API error: ${data.apiError} — ${data.message}`)
-          debugLog.push(`google fix: enable the API at console.cloud.google.com/apis/library/customsearch.googleapis.com`)
-        } else {
-          debugLog.push('google not configured — skipped')
-        }
-      }
-    } catch (err) {
-      debugLog.push(`google error: ${String(err)}`)
-    }
-  }
-
   // ── Deduplicate crawler posts against Supabase (last 30 days) ─
   const manualCount = manualPosts.filter((p: any) => p.text?.trim()).length
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
