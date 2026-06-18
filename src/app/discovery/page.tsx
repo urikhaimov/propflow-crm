@@ -172,7 +172,7 @@ export default function DiscoveryPage() {
       const seenCount = allLeads.filter(l => l.seenBefore).length
 
       if (seenCount > 0) addLog(`⏭ ${seenCount} לידים נראו בעבר (מסומנים בצהוב)`)
-      if (data.extracted === 0 && data.scanned === 0) addLog('⚠ לא נמצאו פוסטים. ייתכן ש-Reddit מגביל גישה כרגע. נסו הדבקה ידנית.')
+      if (data.extracted === 0 && data.scanned === 0) addLog('⚠ לא נמצאו פוסטים. בדקו את לוג הפעילות למעלה לפרטי השגיאה, או נסו הדבקה ידנית.')
       else if (data.extracted === 0) addLog('⚠ פוסטים נסרקו אך לא חולצו לידים. Claude לא מצא נדל"ן ישראלי בפוסטים.')
       else addLog(`✅ סיום — ${allLeads.length} לידים מוכנים (${allLeads.length - seenCount} חדשים)`)
 
