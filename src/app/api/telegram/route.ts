@@ -2,18 +2,19 @@ import { NextResponse } from 'next/server'
 import { scrapeTelegramWithApify } from '@/lib/apify'
 
 // Public Israeli real estate Telegram channels accessible via t.me/s/
+// menivimnet/jeremy_public are actual listing feeds (commercial sales / Tel
+// Aviv rentals) with structured price/rooms/address/phone — high lead yield,
+// listed first so they get priority within the downstream post cap.
 // israelrealestate/nadlan_il/realestate_israel are news/journalism (Globes,
-// TheMarker reposts) — low lead yield but functional. menivimnet and
-// jeremy_public are actual listing feeds (commercial sales / Tel Aviv
-// rentals respectively) with structured price/rooms/address/phone — high
-// lead yield. Most buy/sell/rent communities are private join-link groups,
-// which this public-preview scraper can't reach.
+// TheMarker reposts) — low lead yield but functional, listed last.
+// Most buy/sell/rent communities are private join-link groups, which this
+// public-preview scraper can't reach.
 const CHANNELS = [
+  'menivimnet',
+  'jeremy_public',
   'israelrealestate',
   'nadlan_il',
   'realestate_israel',
-  'menivimnet',
-  'jeremy_public',
 ]
 
 const HEADERS = {
@@ -103,7 +104,13 @@ export async function GET() {
   if (posts.length === 0 && process.env.APIFY_TOKEN) {
     debug.push('telegram plain HTTP returned 0 posts (likely IP-blocked) — trying Apify fallback...')
     try {
-      const apifyPosts = await scrapeTelegramWithApify(CHANNELS, 15)
+      // Results come back grouped per-channel, not interleaved. Requesting few
+      // messages per channel (instead of many from just the first channel)
+      // ensures every channel — including the high-value listing feeds, not
+      // just the news channels — has posts within the downstream 15-post
+      // cross-source cap in /api/crawl.
+      const perChannel = Math.max(3, Math.ceil(15 / CHANNELS.length))
+      const apifyPosts = await scrapeTelegramWithApify(CHANNELS, perChannel)
       posts.push(...apifyPosts)
       debug.push(`telegram Apify fallback: ${apifyPosts.length} posts`)
     } catch (err) {
