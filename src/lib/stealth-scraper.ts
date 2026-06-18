@@ -11,13 +11,19 @@
 // Challenge / PerimeterX) — this is a free attempt tried before falling back
 // to Apify, not a replacement for it.
 
-import chromium from '@sparticuz/chromium'
+import chromium from '@sparticuz/chromium-min'
 import puppeteer from 'puppeteer-core'
 import type { Browser, Page } from 'puppeteer-core'
 import { findChromeExecutable } from '@/lib/find-chrome'
 
 const IS_VERCEL = !!process.env.VERCEL
 const NAV_TIMEOUT_MS = 25_000
+
+// chromium-min ships no binary (the full @sparticuz/chromium's ~67MB Brotli
+// archive got silently dropped from Vercel's deployment bundle — likely a
+// file-size/tracing limit). This downloads the prebuilt pack from Sparticuz's
+// own GitHub release on cold start instead, then caches it in /tmp for warm starts.
+const CHROMIUM_PACK_URL = 'https://github.com/Sparticuz/chromium/releases/download/v149.0.0/chromium-v149.0.0-pack.x64.tar'
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -27,7 +33,7 @@ async function launchBrowser(): Promise<Browser> {
   if (IS_VERCEL) {
     return puppeteer.launch({
       args: chromium.args,
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath(CHROMIUM_PACK_URL),
       headless: true,
     })
   }
