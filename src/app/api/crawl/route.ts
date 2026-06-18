@@ -266,8 +266,13 @@ export async function POST(req: NextRequest) {
   // params (city/rooms/price/dealType derived from the same keyword) — re-running
   // a loose text match on top is redundant and breaks on script mismatches (the
   // keyword's Hebrew "חיפה" won't match a listing whose city field came back as
-  // English "Haifa"). Only apply the text filter to sources with no structured filtering.
-  const STRUCTURALLY_FILTERED_SOURCES = new Set(['yad2', 'madlan'])
+  // English "Haifa"). Telegram posts are long, emoji-heavy, and structured
+  // unpredictably per-channel — the same literal-text matching produced false
+  // negatives there too (genuinely relevant listings dropped because the
+  // exact search words didn't appear verbatim in the truncated body). Claude's
+  // own extraction already filters for real intent at no extra correctness
+  // cost, so skip the keyword pre-filter for sources we can't reliably text-match.
+  const STRUCTURALLY_FILTERED_SOURCES = new Set(['yad2', 'madlan', 'telegram'])
 
   const crawlerPosts = rawPosts
     .slice(manualCount)
