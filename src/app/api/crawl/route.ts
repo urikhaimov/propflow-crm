@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { buildFingerprint, shouldSkipPost, parseLeadJson, extractSearchFilters, matchesKeyword } from '@/lib/scraper-utils'
+import { buildFingerprint, shouldSkipPost, parseLeadJson, extractSearchFilters, matchesKeyword, matchesExtractedLead } from '@/lib/scraper-utils'
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
 
@@ -309,6 +309,13 @@ export async function POST(req: NextRequest) {
       errors.push(error)
       debugLog.push(`Claude error: ${error}`)
     } else if (lead) {
+      // Filter against the search's city/dealType using Claude's own normalized
+      // output, not raw scraped text — manual paste is exempt since it's a
+      // deliberate user action independent of the search box.
+      if (post.source !== 'manual' && !matchesExtractedLead(lead as { city?: string; intent_type?: string }, filters)) {
+        debugLog.push(`skipped (city/intent mismatch): ${lead.intent_type} in ${lead.city}`)
+        continue
+      }
       leads.push({
         ...lead,
         original_post: post.text.substring(0, 500),

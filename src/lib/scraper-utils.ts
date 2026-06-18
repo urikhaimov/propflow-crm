@@ -125,6 +125,36 @@ export function extractSearchFilters(text: string): SearchFilters {
   return { city, minRooms, propertyType, maxPrice, dealType }
 }
 
+// dealType → acceptable intent_type values. Permissive (OR), not 1:1 — a "for
+// sale" post is usually classified as a seller lead (the homeowner selling),
+// not "buyer"; a rental post is often classified as an investor lead (the
+// landlord), not "renter". Strict 1:1 mapping would wrongly drop valid leads.
+const DEAL_TYPE_TO_INTENTS: Record<'buy' | 'rent', string[]> = {
+  buy: ['seller', 'buyer'],
+  rent: ['renter', 'investor'],
+}
+
+/**
+ * True if a Claude-extracted lead matches the structured search filters.
+ * Operates on Claude's own normalized output (city, intent_type), not raw
+ * scraped text — avoids the script-mismatch/truncation issues that made
+ * literal text matching unreliable on Yad2/Madlan/Telegram results.
+ */
+export function matchesExtractedLead(
+  lead: { city?: string; intent_type?: string },
+  filters: SearchFilters,
+): boolean {
+  if (filters.city && lead.city) {
+    const a = lead.city.trim()
+    const b = filters.city.trim()
+    if (!a.includes(b) && !b.includes(a)) return false
+  }
+  if (filters.dealType && lead.intent_type) {
+    if (!DEAL_TYPE_TO_INTENTS[filters.dealType].includes(lead.intent_type)) return false
+  }
+  return true
+}
+
 const STOPWORDS = new Set([
   'a', 'an', 'the', 'for', 'to', 'in', 'of', 'on', 'at', 'and', 'or', 'is',
   'i', 'need', 'want', 'looking', 'apartment', 'property', 'real', 'estate',
