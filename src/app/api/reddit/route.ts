@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { hasIsraelSignal } from '@/lib/scraper-utils'
+import { scrapeRedditWithApify } from '@/lib/apify'
 
 export async function GET(req: NextRequest) {
   const limit = 50
@@ -83,6 +84,25 @@ export async function GET(req: NextRequest) {
       const subLabel = target.url.split('/r/')[1]?.split('/')[0] || 'global'
       debug.push(`r/${subLabel}: error — ${String(err).substring(0, 60)}`)
     }
+  }
+
+  // ── Apify fallback — Reddit returns HTTP 403 for cloud/datacenter IPs (Vercel included) ──
+  if (results.length === 0 && process.env.APIFY_TOKEN) {
+    debug.push('reddit plain HTTP returned 0 posts (likely IP-blocked) — trying Apify fallback...')
+    try {
+      const apifyPosts = await scrapeRedditWithApify(30)
+      debug.push(`reddit Apify fallback: ${apifyPosts.length} posts`)
+      return NextResponse.json({
+        source: 'reddit',
+        count: apifyPosts.length,
+        posts: apifyPosts.map(p => ({ id: p.url, title: p.title, body: p.body, author: '', subreddit: '', url: p.url, created: 0 })),
+        debug,
+      })
+    } catch (err) {
+      debug.push(`reddit Apify fallback error: ${String(err).substring(0, 100)}`)
+    }
+  } else if (results.length === 0) {
+    debug.push('reddit: 0 posts — add APIFY_TOKEN to .env.local to enable Apify fallback')
   }
 
   return NextResponse.json({
