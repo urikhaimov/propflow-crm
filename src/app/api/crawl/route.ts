@@ -287,6 +287,13 @@ export async function POST(req: NextRequest) {
   const seenUrls = new Set<string>((existing || []).map((l: { source_url?: string }) => l.source_url).filter((u): u is string => !!u))
   const seenFingerprints = new Set((existing || []).map((l: { original_post?: string }) => buildFingerprint(l.original_post || '')))
 
+  // Yad2/Madlan already get precisely scoped server-side via structured Apify
+  // params (city/rooms/price/dealType derived from the same keyword) — re-running
+  // a loose text match on top is redundant and breaks on script mismatches (the
+  // keyword's Hebrew "חיפה" won't match a listing whose city field came back as
+  // English "Haifa"). Only apply the text filter to sources with no structured filtering.
+  const STRUCTURALLY_FILTERED_SOURCES = new Set(['yad2', 'madlan'])
+
   const crawlerPosts = rawPosts
     .slice(manualCount)
     .filter(p => {
@@ -294,7 +301,7 @@ export async function POST(req: NextRequest) {
         debugLog.push(`skipped (duplicate): "${buildFingerprint(p.text)}"`)
         return false
       }
-      if (!matchesKeyword(p.text, keyword)) {
+      if (!STRUCTURALLY_FILTERED_SOURCES.has(p.source) && !matchesKeyword(p.text, keyword)) {
         debugLog.push(`skipped (no keyword match): "${buildFingerprint(p.text)}"`)
         return false
       }

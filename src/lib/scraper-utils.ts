@@ -65,6 +65,13 @@ export function extractCityFromText(text: string): string | null {
   return null
 }
 
+// canonical Hebrew city name → every spelling (Hebrew + English) that maps to it.
+// Lets a Hebrew query word also match an English city mention in scraped text, and vice versa.
+const CITY_ALIASES: Record<string, string[]> = {}
+for (const [spelling, canonical] of Object.entries(CITY_NAME_MAP)) {
+  ;(CITY_ALIASES[canonical] ??= []).push(spelling)
+}
+
 const PROPERTY_TYPE_MAP: Record<string, string> = {
   villa: 'villa', וילה: 'villa',
   penthouse: 'penthouse', פנטהאוז: 'penthouse',
@@ -138,8 +145,13 @@ export function extractSignificantWords(text: string): string[] {
 export function matchesKeyword(postText: string, keyword: string): boolean {
   const words = extractSignificantWords(keyword)
   if (words.length === 0) return true
+
+  // Expand with bilingual city aliases so "חיפה" also matches a post that says "Haifa".
+  const city = extractCityFromText(keyword)
+  const expanded = city ? [...words, ...(CITY_ALIASES[city] || [])] : words
+
   const lower = postText.toLowerCase()
-  return words.some(w => lower.includes(w))
+  return expanded.some(w => lower.includes(w.toLowerCase()))
 }
 
 /** First 60 chars of a post's text — used as a dedup fingerprint. */
