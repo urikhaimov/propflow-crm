@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { buildFingerprint, shouldSkipPost, parseLeadJson, extractCityFromText } from '@/lib/scraper-utils'
+import { buildFingerprint, shouldSkipPost, parseLeadJson, extractSearchFilters, matchesKeyword } from '@/lib/scraper-utils'
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
 
@@ -85,10 +85,22 @@ export async function POST(req: NextRequest) {
   const rawPosts: Array<{ text: string; source: string; url?: string; author?: string }> = []
   const debugLog: string[] = []
 
-  // City extracted from the search keyword — scopes Yad2/Madlan instead of always
-  // pulling from 5 default major cities regardless of what the user searched for.
-  const targetCity = extractCityFromText(keyword)
-  if (targetCity) debugLog.push(`keyword "${keyword}" → city filter: ${targetCity}`)
+  // Structured filters parsed from the search keyword — scopes Yad2/Madlan
+  // instead of always pulling from 5 default major cities regardless of input.
+  const filters = extractSearchFilters(keyword)
+  const filterSummary = Object.entries(filters).filter(([, v]) => v != null).map(([k, v]) => `${k}=${v}`).join(', ')
+  if (filterSummary) debugLog.push(`keyword "${keyword}" → filters: ${filterSummary}`)
+
+  function buildFilteredUrl(base: string, path: string): string {
+    const qs = new URLSearchParams()
+    if (filters.city) qs.set('city', filters.city)
+    if (filters.minRooms) qs.set('minRooms', String(filters.minRooms))
+    if (filters.propertyType) qs.set('propertyType', filters.propertyType)
+    if (filters.maxPrice) qs.set('maxPrice', String(filters.maxPrice))
+    if (filters.dealType) qs.set('dealType', filters.dealType)
+    const qsStr = qs.toString()
+    return qsStr ? `${base}${path}?${qsStr}` : `${base}${path}`
+  }
 
   // ── Manual posts — always first, always all ─────────────────
   for (const post of manualPosts) {
@@ -130,7 +142,7 @@ export async function POST(req: NextRequest) {
   if (sources.includes('madlan')) {
     try {
       const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-      const url = targetCity ? `${base}/api/madlan?city=${encodeURIComponent(targetCity)}` : `${base}/api/madlan`
+      const url = buildFilteredUrl(base, '/api/madlan')
       const res = await fetch(url, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
@@ -150,7 +162,7 @@ export async function POST(req: NextRequest) {
   if (sources.includes('yad2')) {
     try {
       const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-      const url = targetCity ? `${base}/api/yad2?city=${encodeURIComponent(targetCity)}` : `${base}/api/yad2`
+      const url = buildFilteredUrl(base, '/api/yad2')
       const res = await fetch(url, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
@@ -280,6 +292,10 @@ export async function POST(req: NextRequest) {
     .filter(p => {
       if (shouldSkipPost(p, seenUrls, seenFingerprints)) {
         debugLog.push(`skipped (duplicate): "${buildFingerprint(p.text)}"`)
+        return false
+      }
+      if (!matchesKeyword(p.text, keyword)) {
+        debugLog.push(`skipped (no keyword match): "${buildFingerprint(p.text)}"`)
         return false
       }
       return true

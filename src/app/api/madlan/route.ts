@@ -120,7 +120,13 @@ function fromRegex(html: string): RawListing[] {
 }
 
 export async function GET(req: Request) {
-  const city = new URL(req.url).searchParams.get('city')
+  const params = new URL(req.url).searchParams
+  const city = params.get('city')
+  const minRooms = params.get('minRooms')
+  const propertyType = params.get('propertyType')
+  const minPrice = params.get('minPrice')
+  const maxPrice = params.get('maxPrice')
+  const dealTypeParam = params.get('dealType')
   const posts: Array<{ title: string; body: string; url: string }> = []
   const seen = new Set<string>()
 
@@ -157,7 +163,14 @@ export async function GET(req: Request) {
   // ── Apify fallback — used when plain HTTP returns 0 (blocked or structure changed) ──
   if (posts.length === 0 && process.env.APIFY_TOKEN) {
     try {
-      const apifyPosts = await scrapeMadlanWithApify(15, city ? [city] : undefined)
+      const apifyPosts = await scrapeMadlanWithApify(15, {
+        cities: city ? [city] : undefined,
+        minRooms: minRooms ? Number(minRooms) : undefined,
+        propertyType: propertyType || undefined,
+        minPrice: minPrice ? Number(minPrice) : undefined,
+        maxPrice: maxPrice ? Number(maxPrice) : undefined,
+        dealType: dealTypeParam === 'buy' || dealTypeParam === 'rent' ? dealTypeParam : undefined,
+      })
       posts.push(...apifyPosts)
     } catch { /* silent — Apify is optional */ }
   }

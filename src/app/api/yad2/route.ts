@@ -72,7 +72,12 @@ function buildPost(item: Yad2Item, label: string) {
 }
 
 export async function GET(req: Request) {
-  const city = new URL(req.url).searchParams.get('city')
+  const params = new URL(req.url).searchParams
+  const city = params.get('city')
+  const minRooms = params.get('minRooms')
+  const minPrice = params.get('minPrice')
+  const maxPrice = params.get('maxPrice')
+  const dealTypeParam = params.get('dealType')
   const posts: Array<{ title: string; body: string; url: string }> = []
   const seen  = new Set<string>()
   const debug: string[] = []
@@ -145,7 +150,13 @@ export async function GET(req: Request) {
   if (posts.length === 0 && process.env.APIFY_TOKEN) {
     debug.push(`yad2 plain HTTP returned 0 posts — trying Apify fallback${city ? ` (city: ${city})` : ''}...`)
     try {
-      const apifyPosts = await scrapeYad2WithApify(15, city ? [city] : undefined)
+      const apifyPosts = await scrapeYad2WithApify(15, {
+        cities: city ? [city] : undefined,
+        minRooms: minRooms ? Number(minRooms) : undefined,
+        minPrice: minPrice ? Number(minPrice) : undefined,
+        maxPrice: maxPrice ? Number(maxPrice) : undefined,
+        dealType: dealTypeParam === 'buy' || dealTypeParam === 'rent' ? dealTypeParam : undefined,
+      })
       posts.push(...apifyPosts)
       debug.push(`yad2 Apify fallback: ${apifyPosts.length} posts`)
     } catch (err) {

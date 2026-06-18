@@ -65,6 +65,83 @@ export function extractCityFromText(text: string): string | null {
   return null
 }
 
+const PROPERTY_TYPE_MAP: Record<string, string> = {
+  villa: 'villa', וילה: 'villa',
+  penthouse: 'penthouse', פנטהאוז: 'penthouse',
+  studio: 'studio', סטודיו: 'studio',
+  commercial: 'commercial', מסחרי: 'commercial',
+  land: 'land', מגרש: 'land', קרקע: 'land',
+  apartment: 'apartment', דירה: 'apartment', דירת: 'apartment',
+}
+
+export interface SearchFilters {
+  city: string | null
+  minRooms?: number
+  propertyType?: string
+  maxPrice?: number
+  dealType?: 'buy' | 'rent'
+}
+
+/**
+ * Parses free-text search input for structured filters (city, rooms, property
+ * type, budget, buy/rent intent) so callers can scope a scrape instead of
+ * always pulling everything. Best-effort regex parsing, not full NLP.
+ */
+export function extractSearchFilters(text: string): SearchFilters {
+  const lower = text.toLowerCase()
+
+  const city = extractCityFromText(text)
+
+  // "4 חדרים", "3.5 חד'", "4 room(s)"
+  const roomsMatch = lower.match(/(\d+(?:\.\d+)?)\s*(?:חדרים|חד['׳]|room)/)
+  const minRooms = roomsMatch ? parseFloat(roomsMatch[1]) : undefined
+
+  let propertyType: string | undefined
+  for (const [key, val] of Object.entries(PROPERTY_TYPE_MAP)) {
+    if (lower.includes(key)) { propertyType = val; break }
+  }
+
+  // "עד 3 מיליון", "up to 3M", or a raw 6+ digit number
+  let maxPrice: number | undefined
+  const millionMatch = lower.match(/(\d+(?:\.\d+)?)\s*(?:מיליון|million|m\b)/)
+  if (millionMatch) {
+    maxPrice = parseFloat(millionMatch[1]) * 1_000_000
+  } else {
+    const rawNumberMatch = lower.match(/\b(\d{6,9})\b/)
+    if (rawNumberMatch) maxPrice = parseInt(rawNumberMatch[1], 10)
+  }
+
+  let dealType: 'buy' | 'rent' | undefined
+  if (/(להשכרה|rent|rental|שכירות)/.test(lower)) dealType = 'rent'
+  else if (/(לקנייה|לקניה|buy|purchase|מכירה)/.test(lower)) dealType = 'buy'
+
+  return { city, minRooms, propertyType, maxPrice, dealType }
+}
+
+const STOPWORDS = new Set([
+  'a', 'an', 'the', 'for', 'to', 'in', 'of', 'on', 'at', 'and', 'or', 'is',
+  'i', 'need', 'want', 'looking', 'apartment', 'property', 'real', 'estate',
+  'israel', 'buy', 'rent', 'sale', 'search', 'room', 'rooms',
+  'דירה', 'דירת', 'נכס', 'נדלן', 'נדל"ן', 'לקנייה', 'להשכרה', 'מחפש',
+  'מחפשת', 'רוצה', 'צריך', 'צריכה', 'עד', 'של', 'עם', 'כל', 'גם', 'חדרים',
+])
+
+/** Lowercased, stopword-filtered significant words from free text (numbers excluded). */
+export function extractSignificantWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-zא-ת0-9.]+/)
+    .filter(w => w.length >= 2 && !/^\d+$/.test(w) && !STOPWORDS.has(w))
+}
+
+/** True if the post text contains at least one significant word from the keyword (or the keyword has no significant words — no-op filter). */
+export function matchesKeyword(postText: string, keyword: string): boolean {
+  const words = extractSignificantWords(keyword)
+  if (words.length === 0) return true
+  const lower = postText.toLowerCase()
+  return words.some(w => lower.includes(w))
+}
+
 /** First 60 chars of a post's text — used as a dedup fingerprint. */
 export function buildFingerprint(text: string): string {
   return text.substring(0, 60)

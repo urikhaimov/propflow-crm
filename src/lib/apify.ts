@@ -13,6 +13,15 @@ export type ApifyPost = { title: string; body: string; url: string }
 
 type DealType = 'buy' | 'rent'
 
+export interface ApifyScrapeFilters {
+  cities?: string[]
+  minRooms?: number
+  propertyType?: string
+  minPrice?: number
+  maxPrice?: number
+  dealType?: DealType
+}
+
 // ── Generic actor runner ───────────────────────────────────────────────────
 // Throws on any error so callers can surface the message in their debug log.
 async function runActor(
@@ -121,24 +130,34 @@ function buildMadlanPost(item: Record<string, unknown>, dealLabel: string): Apif
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
-export async function scrapeYad2WithApify(maxPerDeal = 15, cities: string[] = CITIES): Promise<ApifyPost[]> {
+const DEAL_LABELS: Record<DealType, string> = { buy: 'נכס למכירה', rent: 'נכס להשכרה' }
+
+export async function scrapeYad2WithApify(maxPerDeal = 15, filters: ApifyScrapeFilters = {}): Promise<ApifyPost[]> {
+  const cities = filters.cities?.length ? filters.cities : CITIES
+  const dealTypes: DealType[] = filters.dealType ? [filters.dealType] : ['buy', 'rent']
+
   const posts: ApifyPost[] = []
   const seen = new Set<string>()
   // Run one city at a time — 'all' (127+ cities) takes 3-5 min and times out.
   // Stop as soon as we have enough posts.
   for (const city of cities) {
     if (posts.length >= maxPerDeal * 2) break
-    for (const [dealType, label] of [['buy', 'נכס למכירה'], ['rent', 'נכס להשכרה']] as [DealType, string][]) {
-      const items = await runActor('swerve/yad2-scraper', {
+    for (const dealType of dealTypes) {
+      const input: Record<string, unknown> = {
         city,
         dealType,
         maxItems: Math.ceil(maxPerDeal / cities.length) + 1,
         enrichListings: false,
-      }, maxPerDeal)
+      }
+      if (filters.minRooms) input.minRooms = filters.minRooms
+      if (filters.minPrice) input.minPrice = filters.minPrice
+      if (filters.maxPrice) input.maxPrice = filters.maxPrice
+
+      const items = await runActor('swerve/yad2-scraper', input, maxPerDeal)
 
       for (const raw of items) {
         const item = raw as Record<string, unknown>
-        const post = buildYad2Post(item, label)
+        const post = buildYad2Post(item, DEAL_LABELS[dealType])
         if (!post) continue
         const fp = post.title.substring(0, 60)
         if (seen.has(fp)) continue
@@ -151,22 +170,31 @@ export async function scrapeYad2WithApify(maxPerDeal = 15, cities: string[] = CI
   return posts
 }
 
-export async function scrapeMadlanWithApify(maxPerDeal = 15, cities: string[] = CITIES): Promise<ApifyPost[]> {
+export async function scrapeMadlanWithApify(maxPerDeal = 15, filters: ApifyScrapeFilters = {}): Promise<ApifyPost[]> {
+  const cities = filters.cities?.length ? filters.cities : CITIES
+  const dealTypes: DealType[] = filters.dealType ? [filters.dealType] : ['buy', 'rent']
+
   const posts: ApifyPost[] = []
   const seen = new Set<string>()
 
   for (const city of cities) {
     if (posts.length >= maxPerDeal * 2) break
-    for (const [dealType, label] of [['buy', 'נכס למכירה'], ['rent', 'נכס להשכרה']] as [DealType, string][]) {
-      const items = await runActor('swerve/madlan-scraper', {
+    for (const dealType of dealTypes) {
+      const input: Record<string, unknown> = {
         city,
         dealType,
         maxItems: Math.ceil(maxPerDeal / cities.length) + 1,
-      }, maxPerDeal)
+      }
+      if (filters.minRooms) input.minRooms = filters.minRooms
+      if (filters.propertyType) input.propertyType = filters.propertyType
+      if (filters.minPrice) input.minPrice = filters.minPrice
+      if (filters.maxPrice) input.maxPrice = filters.maxPrice
+
+      const items = await runActor('swerve/madlan-scraper', input, maxPerDeal)
 
       for (const raw of items) {
         const item = raw as Record<string, unknown>
-        const post = buildMadlanPost(item, label)
+        const post = buildMadlanPost(item, DEAL_LABELS[dealType])
         if (!post) continue
         const fp = post.title.substring(0, 60)
         if (seen.has(fp)) continue
