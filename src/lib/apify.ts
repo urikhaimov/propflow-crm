@@ -208,26 +208,17 @@ export async function scrapeMadlanWithApify(maxPerDeal = 15, filters: ApifyScrap
 }
 
 // Reddit blocks Vercel's datacenter IPs outright (HTTP 403) regardless of headers —
-// trudax/reddit-scraper uses Apify's residential proxy pool to get around that.
-// Note: this actor bills differently from the swerve actors (browser-based, not API-based).
+// parseforge/reddit-posts-scraper uses Apify's residential proxy pool to get around
+// that. Pay-per-result pricing, no actor rental/subscription required.
 export async function scrapeRedditWithApify(maxItems = 30): Promise<ApifyPost[]> {
-  const startUrls = [
-    { url: 'https://www.reddit.com/r/israelrealestate/new/' },
-    { url: 'https://www.reddit.com/r/aliyah/search/?q=apartment+rent+buy+housing&restrict_sr=1&sort=new' },
-    { url: 'https://www.reddit.com/r/Israel/search/?q=apartment+rent+buy+property&restrict_sr=1&sort=new' },
-    { url: 'https://www.reddit.com/r/telaviv/search/?q=apartment+rent+room+flat&restrict_sr=1&sort=new' },
-  ]
-
-  const items = await runActor('trudax/reddit-scraper', {
-    startUrls,
-    searchPosts: true,
-    skipComments: true,
-    skipUserPosts: true,
-    skipCommunity: true,
+  const items = await runActor('parseforge/reddit-posts-scraper', {
+    subreddits: ['israelrealestate', 'aliyah', 'Israel', 'telaviv', 'Jerusalem'],
+    searchQueries: ['apartment israel', 'דירה ישראל', 'apartment tel aviv'],
     sort: 'new',
+    time: 'month',
     maxItems,
-    maxPostCount: Math.ceil(maxItems / startUrls.length) + 2,
-    proxy: { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] },
+    postsPerSource: Math.ceil(maxItems / 3) + 2,
+    proxyConfiguration: { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] },
   }, maxItems)
 
   const posts: ApifyPost[] = []
@@ -236,18 +227,18 @@ export async function scrapeRedditWithApify(maxItems = 30): Promise<ApifyPost[]>
   for (const raw of items) {
     const item = raw as Record<string, unknown>
     const title = pick(item, 'title')
-    const body  = pick(item, 'body', 'text')
+    const body  = pick(item, 'selfText', 'body', 'text')
     if (!title && !body) continue
     const fp = title.substring(0, 60)
     if (seen.has(fp)) continue
     seen.add(fp)
 
-    const community = pick(item, 'communityName', 'parsedCommunityName')
-    const url = pick(item, 'url') || 'https://www.reddit.com'
+    const subreddit = pick(item, 'subreddit')
+    const url = pick(item, 'permalink', 'url') || 'https://www.reddit.com'
 
     posts.push({
       title: title || body.substring(0, 80),
-      body: `[${community || 'Reddit'}] ${body}`.substring(0, 500),
+      body: `[r/${subreddit || 'Reddit'}] ${body}`.substring(0, 500),
       url,
     })
   }
