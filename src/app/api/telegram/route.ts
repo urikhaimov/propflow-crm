@@ -1,15 +1,13 @@
 import { NextResponse } from 'next/server'
 
 // Public Israeli real estate Telegram channels accessible via t.me/s/
+// Note: these are news/journalism channels (Globes, TheMarker reposts), not
+// classifieds — most active buy/sell/rent communities on Telegram are private
+// groups requiring a join link, which this public-preview scraper can't reach.
 const CHANNELS = [
-  'israelirealestate',
   'israelrealestate',
-  'diyrot_israel',
   'nadlan_il',
-  'tlvrealestate',
   'realestate_israel',
-  'diyrotbaisrael',
-  'israelnachlas',
 ]
 
 const HEADERS = {
