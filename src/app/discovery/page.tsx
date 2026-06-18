@@ -68,7 +68,7 @@ export default function DiscoveryPage() {
   const { addLead } = useCRMStore()
 
   const [isLocal, setIsLocal]           = useState(false)
-  const [keyword, setKeyword]           = useState('apartment israel real estate')
+  const [keyword, setKeyword]           = useState('נדל"ן בישראל')
   const [selectedSources, setSelected] = useState<string[]>(['reddit', 'manual'])
   const [manualText, setManualText]     = useState('')
   const [manualSource, setManualSource] = useState('facebook')
