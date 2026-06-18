@@ -4,8 +4,6 @@ const nextConfig = {
   serverExternalPackages: [
     'playwright-core',
     'puppeteer-core',
-    'puppeteer-extra',
-    'puppeteer-extra-plugin-stealth',
     '@sparticuz/chromium',
   ],
 }
