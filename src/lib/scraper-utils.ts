@@ -35,6 +35,36 @@ export function hasIsraelSignal(text: string, fromIsraelSub = false): boolean {
   return ISRAEL_SIGNALS.some(sig => lower.includes(sig.toLowerCase()))
 }
 
+// English/Hebrew spelling → canonical Hebrew city name (matches Apify actor input format)
+const CITY_NAME_MAP: Record<string, string> = {
+  'tel aviv': 'תל אביב', 'תל אביב': 'תל אביב',
+  jerusalem: 'ירושלים', ירושלים: 'ירושלים',
+  haifa: 'חיפה', חיפה: 'חיפה',
+  herzliya: 'הרצליה', הרצליה: 'הרצליה',
+  netanya: 'נתניה', נתניה: 'נתניה',
+  raanana: 'רעננה', רעננה: 'רעננה',
+  'beer sheva': 'באר שבע', 'באר שבע': 'באר שבע',
+  modiin: 'מודיעין', מודיעין: 'מודיעין',
+  rehovot: 'רחובות', רחובות: 'רחובות',
+  ashdod: 'אשדוד', אשדוד: 'אשדוד',
+  'rishon lezion': 'ראשון לציון', rishon: 'ראשון לציון', 'ראשון לציון': 'ראשון לציון', ראשון: 'ראשון לציון',
+  'ramat gan': 'רמת גן', 'רמת גן': 'רמת גן',
+  'bat yam': 'בת ים', 'בת ים': 'בת ים',
+  eilat: 'אילת', אילת: 'אילת',
+  'petah tikva': 'פתח תקווה', 'פתח תקווה': 'פתח תקווה',
+  givatayim: 'גבעתיים', גבעתיים: 'גבעתיים',
+  holon: 'חולון', חולון: 'חולון',
+}
+
+/** Finds the first recognized Israeli city name (English or Hebrew) in free text, returns its canonical Hebrew form. */
+export function extractCityFromText(text: string): string | null {
+  const lower = text.toLowerCase()
+  for (const [key, canonical] of Object.entries(CITY_NAME_MAP)) {
+    if (lower.includes(key.toLowerCase())) return canonical
+  }
+  return null
+}
+
 /** First 60 chars of a post's text — used as a dedup fingerprint. */
 export function buildFingerprint(text: string): string {
   return text.substring(0, 60)

@@ -71,7 +71,8 @@ function buildPost(item: Yad2Item, label: string) {
   return { title, body: `[${label}] ${body}`, url }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const city = new URL(req.url).searchParams.get('city')
   const posts: Array<{ title: string; body: string; url: string }> = []
   const seen  = new Set<string>()
   const debug: string[] = []
@@ -142,9 +143,9 @@ export async function GET() {
 
   // ── Apify fallback — used when plain HTTP returns 0 (blocked or structure changed) ──
   if (posts.length === 0 && process.env.APIFY_TOKEN) {
-    debug.push('yad2 plain HTTP returned 0 posts — trying Apify fallback...')
+    debug.push(`yad2 plain HTTP returned 0 posts — trying Apify fallback${city ? ` (city: ${city})` : ''}...`)
     try {
-      const apifyPosts = await scrapeYad2WithApify(15)
+      const apifyPosts = await scrapeYad2WithApify(15, city ? [city] : undefined)
       posts.push(...apifyPosts)
       debug.push(`yad2 Apify fallback: ${apifyPosts.length} posts`)
     } catch (err) {

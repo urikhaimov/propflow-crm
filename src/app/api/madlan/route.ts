@@ -119,7 +119,8 @@ function fromRegex(html: string): RawListing[] {
   return listings.slice(0, 30)
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const city = new URL(req.url).searchParams.get('city')
   const posts: Array<{ title: string; body: string; url: string }> = []
   const seen = new Set<string>()
 
@@ -156,7 +157,7 @@ export async function GET() {
   // ── Apify fallback — used when plain HTTP returns 0 (blocked or structure changed) ──
   if (posts.length === 0 && process.env.APIFY_TOKEN) {
     try {
-      const apifyPosts = await scrapeMadlanWithApify(15)
+      const apifyPosts = await scrapeMadlanWithApify(15, city ? [city] : undefined)
       posts.push(...apifyPosts)
     } catch { /* silent — Apify is optional */ }
   }

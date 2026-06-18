@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { buildFingerprint, shouldSkipPost, parseLeadJson } from '@/lib/scraper-utils'
+import { buildFingerprint, shouldSkipPost, parseLeadJson, extractCityFromText } from '@/lib/scraper-utils'
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
 
@@ -85,6 +85,11 @@ export async function POST(req: NextRequest) {
   const rawPosts: Array<{ text: string; source: string; url?: string; author?: string }> = []
   const debugLog: string[] = []
 
+  // City extracted from the search keyword — scopes Yad2/Madlan instead of always
+  // pulling from 5 default major cities regardless of what the user searched for.
+  const targetCity = extractCityFromText(keyword)
+  if (targetCity) debugLog.push(`keyword "${keyword}" → city filter: ${targetCity}`)
+
   // ── Manual posts — always first, always all ─────────────────
   for (const post of manualPosts) {
     if (post.text?.trim()) {
@@ -125,7 +130,8 @@ export async function POST(req: NextRequest) {
   if (sources.includes('madlan')) {
     try {
       const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-      const res = await fetch(`${base}/api/madlan`, { cache: 'no-store' })
+      const url = targetCity ? `${base}/api/madlan?city=${encodeURIComponent(targetCity)}` : `${base}/api/madlan`
+      const res = await fetch(url, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         for (const post of data.posts || []) {
@@ -144,7 +150,8 @@ export async function POST(req: NextRequest) {
   if (sources.includes('yad2')) {
     try {
       const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-      const res = await fetch(`${base}/api/yad2`, { cache: 'no-store' })
+      const url = targetCity ? `${base}/api/yad2?city=${encodeURIComponent(targetCity)}` : `${base}/api/yad2`
+      const res = await fetch(url, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         if (data.debug?.length) data.debug.forEach((l: string) => debugLog.push(`  yad2: ${l}`))

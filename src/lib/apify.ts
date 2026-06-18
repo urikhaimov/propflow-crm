@@ -121,18 +121,18 @@ function buildMadlanPost(item: Record<string, unknown>, dealLabel: string): Apif
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
-export async function scrapeYad2WithApify(maxPerDeal = 15): Promise<ApifyPost[]> {
+export async function scrapeYad2WithApify(maxPerDeal = 15, cities: string[] = CITIES): Promise<ApifyPost[]> {
   const posts: ApifyPost[] = []
   const seen = new Set<string>()
   // Run one city at a time — 'all' (127+ cities) takes 3-5 min and times out.
   // Stop as soon as we have enough posts.
-  for (const city of CITIES) {
+  for (const city of cities) {
     if (posts.length >= maxPerDeal * 2) break
     for (const [dealType, label] of [['buy', 'נכס למכירה'], ['rent', 'נכס להשכרה']] as [DealType, string][]) {
       const items = await runActor('swerve/yad2-scraper', {
         city,
         dealType,
-        maxItems: Math.ceil(maxPerDeal / CITIES.length) + 1,
+        maxItems: Math.ceil(maxPerDeal / cities.length) + 1,
         enrichListings: false,
       }, maxPerDeal)
 
@@ -151,17 +151,17 @@ export async function scrapeYad2WithApify(maxPerDeal = 15): Promise<ApifyPost[]>
   return posts
 }
 
-export async function scrapeMadlanWithApify(maxPerDeal = 15): Promise<ApifyPost[]> {
+export async function scrapeMadlanWithApify(maxPerDeal = 15, cities: string[] = CITIES): Promise<ApifyPost[]> {
   const posts: ApifyPost[] = []
   const seen = new Set<string>()
 
-  for (const city of CITIES) {
+  for (const city of cities) {
     if (posts.length >= maxPerDeal * 2) break
     for (const [dealType, label] of [['buy', 'נכס למכירה'], ['rent', 'נכס להשכרה']] as [DealType, string][]) {
       const items = await runActor('swerve/madlan-scraper', {
         city,
         dealType,
-        maxItems: Math.ceil(maxPerDeal / CITIES.length) + 1,
+        maxItems: Math.ceil(maxPerDeal / cities.length) + 1,
       }, maxPerDeal)
 
       for (const raw of items) {
