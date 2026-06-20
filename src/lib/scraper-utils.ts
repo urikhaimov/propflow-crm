@@ -138,7 +138,7 @@ const DEAL_TYPE_TO_INTENTS: Record<'buy' | 'rent', string[]> = {
  * True if a Claude-extracted lead matches the structured search filters.
  * Operates on Claude's own normalized output (city, intent_type), not raw
  * scraped text — avoids the script-mismatch/truncation issues that made
- * literal text matching unreliable on Yad2/Madlan/Telegram results.
+ * literal text matching unreliable on Yad2/Telegram results.
  */
 export function matchesExtractedLead(
   lead: { city?: string; intent_type?: string },

@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
         error: 'local_only',
         message:
           'סריקת Playwright מחייבת הפעלה מקומית (npm run dev). ' +
-          'בפריסת Vercel השתמש במקורות הרגילים (Reddit, יד2, טלגרם, מדלן).',
+          'בפריסת Vercel השתמש במקורות הרגילים (טלגרם, הדבקה ידנית).',
       },
       { status: 403 }
     )

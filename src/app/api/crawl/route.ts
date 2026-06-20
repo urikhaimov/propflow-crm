@@ -100,26 +100,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Madlan ─────────────────────────────────────────────────
-  if (sources.includes('madlan')) {
-    try {
-      const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-      const res = await fetch(`${base}/api/madlan`, { cache: 'no-store' })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.debug?.length) data.debug.forEach((l: string) => debugLog.push(`  madlan: ${l}`))
-        for (const post of data.posts || []) {
-          rawPosts.push({ text: `${post.title}\n${post.body}`.trim(), source: 'madlan', url: post.url })
-        }
-        debugLog.push(`madlan returned ${data.posts?.length || 0} posts`)
-      } else {
-        debugLog.push(`madlan fetch failed: ${res.status}`)
-      }
-    } catch (err) {
-      debugLog.push(`madlan error: ${String(err)}`)
-    }
-  }
-
   // ── Yad2 ───────────────────────────────────────────────────
   if (sources.includes('yad2')) {
     try {
@@ -224,13 +204,13 @@ export async function POST(req: NextRequest) {
   const seenUrls = new Set<string>((existing || []).map((l: { source_url?: string }) => l.source_url).filter((u): u is string => !!u))
   const seenFingerprints = new Set((existing || []).map((l: { original_post?: string }) => buildFingerprint(l.original_post || '')))
 
-  // Yad2/Madlan/Telegram listings are structured (city/price/rooms fields, or
+  // Yad2/Telegram listings are structured (city/price/rooms fields, or
   // long emoji-heavy posts) where a literal keyword text-match produces false
   // negatives — e.g. the keyword's Hebrew "חיפה" won't match a listing whose
   // city came back as English "Haifa", and truncated bodies drop exact words.
   // These get filtered post-extraction via matchesExtractedLead() against
   // Claude's normalized output instead, so skip the raw text pre-filter here.
-  const STRUCTURALLY_FILTERED_SOURCES = new Set(['yad2', 'madlan', 'telegram'])
+  const STRUCTURALLY_FILTERED_SOURCES = new Set(['yad2', 'telegram'])
 
   const filteredPosts = rawPosts
     .slice(manualCount)

@@ -281,32 +281,6 @@ export default function SettingsPage() {
             </div>
           </IntegrationCard>
 
-          {/* Madlan auto-crawl */}
-          <IntegrationCard icon="🏠" title="מדלן — סריקת מוכרים ומשכירים" status={true}>
-            <p className="text-xs text-slate-400 mb-3">
-              מדלן מפרסמת אלפי נכסים פעילים. כל מוכר או משכיר הוא ליד פוטנציאלי — סוכנות יכולה לפנות
-              ולהציע ייצוג בלעדי. Claude מזהה ומדרג כל מודעה כליד seller/investor.
-            </p>
-            <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-slate-800 rounded-lg p-2">
-                  <div className="text-sm font-semibold text-indigo-400">כל 6 שעות</div>
-                  <div className="text-xs text-slate-500">תדירות סריקה</div>
-                </div>
-                <div className="bg-slate-800 rounded-lg p-2">
-                  <div className="text-sm font-semibold text-amber-400">למכירה + השכרה</div>
-                  <div className="text-xs text-slate-500">סוגי נכסים</div>
-                </div>
-                <div className="bg-slate-800 rounded-lg p-2">
-                  <div className="text-sm font-semibold text-green-400">ציון ≥ 60</div>
-                  <div className="text-xs text-slate-500">סף שמירה</div>
-                </div>
-              </div>
-              <div className="text-xs text-slate-500 mb-1">הפעלה ידנית מיידית</div>
-              <CrawlButton source="madlan" label="מדלן" />
-            </div>
-          </IntegrationCard>
-
           {/* Source breakdown hint */}
           <div className="glass rounded-2xl p-5">
             <div className="flex items-center gap-3 mb-3">

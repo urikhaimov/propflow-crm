@@ -2,8 +2,8 @@
 // Scheduled crawl — called by Vercel Cron daily.
 // GET: cron trigger (validates CRON_SECRET via Authorization header)
 // POST: manual trigger from Settings page
-// Telegram (MTProto) is the primary source that works on Vercel; Yad2/Madlan
-// are datacenter-IP-blocked there and only yield data on a local run.
+// Telegram (MTProto) is the primary source that works on Vercel; Yad2 is
+// datacenter-IP-blocked there and only yields data on a local run.
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
@@ -122,7 +122,7 @@ async function saveLead(
   return !!data?.id
 }
 
-async function runCrawl(sources: string[] = ['telegram', 'yad2', 'madlan']) {
+async function runCrawl(sources: string[] = ['telegram', 'yad2']) {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) return { error: 'ANTHROPIC_API_KEY not set', saved: 0, skipped: 0, scanned: 0 }
 
@@ -133,7 +133,6 @@ async function runCrawl(sources: string[] = ['telegram', 'yad2', 'madlan']) {
     telegram: `${base}/api/telegram`,
     yad2: `${base}/api/yad2`,
     alljobs: `${base}/api/alljobs`,
-    madlan: `${base}/api/madlan`,
   }
 
   const allPosts: RawPost[] = []
@@ -200,7 +199,7 @@ export async function GET(req: NextRequest) {
   }
   // ?sources=telegram,yad2  or default = all
   const srcParam = req.nextUrl.searchParams.get('sources')
-  const sources = srcParam ? srcParam.split(',').map(s => s.trim()) : ['telegram', 'yad2', 'madlan']
+  const sources = srcParam ? srcParam.split(',').map(s => s.trim()) : ['telegram', 'yad2']
   const result = await runCrawl(sources)
   return NextResponse.json(result)
 }
@@ -208,7 +207,7 @@ export async function GET(req: NextRequest) {
 // Manual trigger from Settings page — body: { sources?: string[] }
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
-  const sources: string[] = body.sources || ['telegram', 'yad2', 'madlan']
+  const sources: string[] = body.sources || ['telegram', 'yad2']
   const result = await runCrawl(sources)
   return NextResponse.json(result)
 }

@@ -1,4 +1,4 @@
-// lib/stealth-scraper.ts — free headless-browser fallback for Yad2/Madlan
+// lib/stealth-scraper.ts — free headless-browser fallback for Yad2
 // when plain HTTP is blocked. Hand-rolled stealth patches (not the
 // puppeteer-extra-plugin-stealth package — its deep CJS dependency chain
 // (clone-deep/merge-deep/is-plain-object) breaks both Turbopack's bundler

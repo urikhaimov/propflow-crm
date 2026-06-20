@@ -36,9 +36,8 @@ type DiscoveredLead = {
 const SOURCE_CONFIG = [
   { key: 'telegram', label: 'טלגרם',          emoji: '✈️', desc: 'ערוצי נדל"ן ישראלי ציבוריים',              free: true,  localOnly: false },
   { key: 'yad2',     label: 'יד2',            emoji: '🏡', desc: 'רישומי נדל"ן — עובד מקומית בלבד',           free: true,  localOnly: true  },
-  { key: 'madlan',   label: 'מדלן',           emoji: '🏠', desc: 'מוכרים ומשכירים — עובד מקומית בלבד',        free: true,  localOnly: true  },
   { key: 'facebook', label: 'פייסבוק',        emoji: '👥', desc: 'קבוצות נדל"ן — דורש Chrome מחובר מקומית',  free: true,  localOnly: true  },
-  { key: 'url',      label: 'כתובת URL',      emoji: '🔗', desc: 'סרוק כל עמוד ציבורי — יד2, מדלן, פורומים',free: true,  localOnly: true  },
+  { key: 'url',      label: 'כתובת URL',      emoji: '🔗', desc: 'סרוק כל עמוד ציבורי — יד2, פורומים, ועוד', free: true,  localOnly: true  },
   { key: 'manual',   label: 'הדבקה ידנית',    emoji: '📋', desc: 'פייסבוק, וואטסאפ, כל מקור אחר',            free: true,  localOnly: false },
 ]
 
@@ -300,12 +299,12 @@ export default function DiscoveryPage() {
                 <SectionTitle>🔗 סריקת כתובות URL</SectionTitle>
                 <p className="text-xs text-slate-500 mb-3">
                   הכניסו כתובת URL בכל שורה — Playwright יפתח את הדף ו-Claude יחלץ לידים.
-                  עובד עם יד2, מדלן, פורומים, ועמודים שמשתמשים ב-JavaScript.
+                  עובד עם יד2, פורומים, ועמודים שמשתמשים ב-JavaScript.
                 </p>
                 <textarea
                   value={scrapeUrls}
                   onChange={e => setScrapeUrls(e.target.value)}
-                  placeholder={'https://www.yad2.co.il/item/abc123\nhttps://www.madlan.co.il/listing/xyz'}
+                  placeholder={'https://www.yad2.co.il/item/abc123\nhttps://www.example.co.il/listing/xyz'}
                   className="w-full px-3 py-2.5 bg-slate-800 border border-white/10 rounded-lg text-sm outline-none focus:border-indigo-500 resize-none font-mono"
                   rows={3}
                   dir="ltr"
@@ -329,7 +328,6 @@ export default function DiscoveryPage() {
                   <option value="telegram">טלגרם</option>
                   <option value="whatsapp">וואטסאפ</option>
                   <option value="yad2">יד2</option>
-                  <option value="madlan">מדלן</option>
                   <option value="other">אחר</option>
                 </select>
                 <textarea
