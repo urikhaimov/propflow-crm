@@ -80,18 +80,16 @@ function decodeHtmlEntities(s: string): string {
 function parsePosts(html: string, channel: string): Post[] {
   const posts: Post[] = []
 
-  // Each message is wrapped in a <div class="tgme_widget_message ..."> block
-  const articleRe = /<div class="tgme_widget_message [^"]*"[^>]*data-post="([^"]+)"[\s\S]*?<\/article>/gi
-  const textRe    = /class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i
+  // t.me/s/ wraps each message in <div class="tgme_widget_message_wrap"> — there
+  // are NO <article> tags. Anchor on each message's data-post id, then grab the
+  // first following tgme_widget_message_text block (the post body). Messages with
+  // no text (media-only/service) simply don't contribute a text match.
+  const re = /data-post="([^"]+)"[\s\S]*?<div class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/gi
 
-  let article: RegExpExecArray | null
-  while ((article = articleRe.exec(html)) !== null) {
-    const postId  = article[1] // e.g. "channelname/123"
-    const block   = article[0]
-    const textMatch = textRe.exec(block)
-    if (!textMatch) continue
-
-    const raw  = textMatch[1]
+  let m: RegExpExecArray | null
+  while ((m = re.exec(html)) !== null) {
+    const postId = m[1] // e.g. "channelname/123"
+    const raw = m[2]
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<[^>]+>/g, '')
     const text = decodeHtmlEntities(raw).replace(/\s{3,}/g, '\n').trim()
