@@ -1,5 +1,6 @@
 // components/ui/index.tsx
 import { intentColor, intentLabel, statusLabel, scoreColor } from '@/lib/utils'
+import { getAreaScore, areaScoreColor, areaScoreLabel } from '@/lib/neighborhood-score'
 
 // ─── BADGE ────────────────────────────────────────────────────
 export function IntentBadge({ intent }: { intent: string }) {
@@ -117,6 +118,26 @@ export function LocalOnlyBadge() {
       title="פיצ׳ר זה מחייב הפעלה מקומית (npm run dev). בפריסת Vercel הדפדפן רץ על השרת שלהם, לא על המחשב שלך — ולכן אין גישה לחשבון הפייסבוק/טלגרם שלך."
       className="text-xs px-2 py-0.5 bg-amber-500/15 text-amber-400 border border-amber-500/20 rounded-full cursor-help select-none">
       מקומי בלבד
+    </span>
+  )
+}
+
+// ─── AREA SCORE BADGE ─────────────────────────────────────────
+// Socioeconomic area score (1-10) for a city, from CBS 2022 Census data.
+// Renders nothing when the city is unknown.
+export function AreaScoreBadge({ city }: { city: string | null | undefined }) {
+  const area = getAreaScore(city)
+  if (!area) return null
+  const color = areaScoreColor(area.score)
+  const wage = area.medWage ? `₪${area.medWage.toLocaleString('he-IL')} שכר חציוני` : ''
+  const acad = area.academicPct != null ? `${area.academicPct}% אקדמאים` : ''
+  const tip = [`${areaScoreLabel(area.score)} (מדד חברתי-כלכלי, למ"ס 2022)`, wage, acad].filter(Boolean).join(' · ')
+  return (
+    <span
+      title={tip}
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border cursor-help select-none"
+      style={{ color, borderColor: `${color}40`, background: `${color}1a` }}>
+      🏙 אזור {area.score}/10
     </span>
   )
 }

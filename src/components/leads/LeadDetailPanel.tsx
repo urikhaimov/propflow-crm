@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useCRMStore } from '@/store/crm'
 import { updateLead } from '@/lib/leads'
 import { generateEmail } from '@/lib/ai'
-import { IntentBadge, StatusBadge, ScoreBar, Avatar, AIBox, SectionTitle } from '@/components/ui'
+import { IntentBadge, StatusBadge, ScoreBar, Avatar, AIBox, SectionTitle, AreaScoreBadge } from '@/components/ui'
 import { fmt, intentColor, statusLabel, timeAgo } from '@/lib/utils'
 import type { LeadStatus, Activity } from '@/types'
 
@@ -142,7 +142,12 @@ export default function LeadDetailPanel() {
           <div className="space-y-2 text-sm">
             {l.phone && <div className="flex items-center gap-2 text-indigo-400">📱 <span>{l.phone}</span></div>}
             {l.email && <div className="flex items-center gap-2 text-slate-300">📧 <span className="truncate">{l.email}</span></div>}
-            {l.city && <div className="flex items-center gap-2 text-slate-300">📍 <span>{l.city}{l.neighborhood ? ` / ${l.neighborhood}` : ''}</span></div>}
+            {l.city && (
+              <div className="flex items-center gap-2 text-slate-300 flex-wrap">
+                📍 <span>{l.city}{l.neighborhood ? ` / ${l.neighborhood}` : ''}</span>
+                <AreaScoreBadge city={l.city} />
+              </div>
+            )}
           </div>
         </div>
 

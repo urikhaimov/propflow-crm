@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react'
 import CRMLayout from '@/components/layout/CRMLayout'
 import Topbar from '@/components/layout/Topbar'
-import { SectionTitle, LocalOnlyBadge } from '@/components/ui'
+import { SectionTitle, LocalOnlyBadge, AreaScoreBadge } from '@/components/ui'
 import { useCRMStore } from '@/store/crm'
 import { createLead } from '@/lib/leads'
 import { fmt, scoreColor } from '@/lib/utils'
@@ -459,6 +459,7 @@ export default function DiscoveryPage() {
                       {lead.city && (
                         <span className="text-xs text-slate-500">📍 {lead.city}</span>
                       )}
+                      <AreaScoreBadge city={lead.city} />
                       {lead.seenBefore && !lead.saved && (
                         <span className="text-xs px-2 py-0.5 bg-amber-500/15 text-amber-400 rounded-full">נראה לפני</span>
                       )}
