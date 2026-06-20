@@ -4,15 +4,22 @@ import { getTelegramClient, telegramConfigured } from '@/lib/telegram-client'
 // MTProto connect + multi-channel fetch can take a few seconds — give it room.
 export const maxDuration = 60
 
-// Public Israeli real estate Telegram channels.
-// menivimnet/jeremy_public are actual listing feeds (commercial sales / Tel
-// Aviv rentals) with structured price/rooms/address/phone — high lead yield,
-// listed first so they get priority within the downstream post cap.
-// israelrealestate/nadlan_il/realestate_israel are news/journalism (Globes,
-// TheMarker reposts) — low lead yield but functional, listed last.
+// Public Israeli real estate Telegram channels (each verified to exist + expose
+// parseable text messages via t.me/s/ before being added).
+// Listing feeds (sale/rent, structured price/rooms/address) are listed first so
+// they get priority within the downstream post cap:
+//   menivimnet     — nationwide sales (residential + commercial) + rentals, highest yield
+//   jeremy_public  — Tel Aviv rentals
+//   korenfld       — Eilat residential sales (קורנפלד נכסים)
+// News/journalism (Globes/TheMarker reposts) — low yield but functional, last:
+//   israelrealestate / nadlan_il / realestate_israel
+// Note: most residential-SALE Telegram channels are private join-groups or post
+// listings as images (no scrapeable text), so the public text-feed sale options
+// are limited. Yad2 remains the strongest source for city-specific buy searches.
 const CHANNELS = [
   'menivimnet',
   'jeremy_public',
+  'korenfld',
   'israelrealestate',
   'nadlan_il',
   'realestate_israel',
