@@ -331,15 +331,14 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 # Change to https://yourdomain.com in production
 # Used in /api/crawl to call /api/reddit, /api/yad2, /api/madlan internally
 
-# ── Optional: Apify — fallback scraper for Yad2 + Madlan + Reddit ──
-APIFY_TOKEN=apify_api_...
-# Get token at https://console.apify.com/account/integrations
 # Note: Google Custom Search JSON API was dropped as a source — Google closed
 # it to new customers in early 2026, returning a permanent 403 on any newly
 # created project/key/search-engine combination (not fixable via configuration).
-# Used by /api/yad2 and /api/madlan as fallback when plain HTTP returns 0 posts
-# Cost: ~$5 / 1,000 results. Actors used: swerve/yad2-scraper, swerve/madlan-scraper
-# If not set, Apify fallback is silently skipped
+#
+# Note: Apify was removed entirely (was a paid fallback for Yad2/Madlan/Telegram/
+# Reddit). No paid scraping service is used. Yad2/Madlan are marked "local only"
+# in the discovery UI — they work from a residential IP (local `npm run dev`)
+# but are blocked by Cloudflare/PerimeterX on cloud/datacenter IPs like Vercel's.
 ```
 
 ---
@@ -543,7 +542,7 @@ fmt(null)            // → "—"
 | AI returns 0 leads from Reddit | Posts matched Reddit fetch but not real estate intent | ✅ Resolved | `/api/reddit` pre-filters with 30+ intent keywords before sending to Claude |
 | AI calls blocked by browser CORS | Calling Anthropic directly from client | ✅ Resolved | All calls go through `/api/ai` server route |
 | Discovery manual paste ignored | Not processed when Reddit also selected | ✅ Resolved | `/api/crawl` always processes manual posts first, unconditionally |
-| Reddit/Yad2/Madlan return 0 posts on Vercel | Sites block Vercel's datacenter IPs (HTTP 403) | ✅ Resolved | Apify fallback (`lib/apify.ts`) kicks in automatically when plain HTTP returns 0 |
+| Reddit/Yad2/Madlan return 0 posts on Vercel | Sites block cloud/datacenter IPs (Cloudflare/PerimeterX) | ⚠️ Known limit | No free workaround on Vercel. Yad2/Madlan marked "local only" (work via `npm run dev` on a residential IP). Apify fallback was removed (paid). Reddit/Telegram official APIs are the planned free path for Vercel. |
 | Google Search dropped entirely | Google closed Custom Search JSON API to new customers (2026) — permanent 403 on any new project/key/cx, unfixable | ❌ Removed | Source deleted from discovery page, `/api/crawl`, and `/api/google-search` route |
 
 ---

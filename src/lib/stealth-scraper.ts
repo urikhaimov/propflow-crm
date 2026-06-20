@@ -8,8 +8,8 @@
 // window.chrome.runtime, and the permissions API's notification quirk.
 //
 // No guarantee against sophisticated bot detection (e.g. Cloudflare Managed
-// Challenge / PerimeterX) — this is a free attempt tried before falling back
-// to Apify, not a replacement for it.
+// Challenge / PerimeterX). Works from a non-flagged residential IP (local
+// dev), but cloud/datacenter IPs like Vercel's are typically blocked outright.
 
 import chromium from '@sparticuz/chromium-min'
 import puppeteer from 'puppeteer-core'
@@ -61,8 +61,8 @@ async function applyStealthPatches(page: Page): Promise<void> {
 
 /**
  * Loads a URL in a stealth-patched headless browser and returns the rendered HTML.
- * Throws on navigation failure or timeout — callers should catch and fall
- * back to their next option (e.g. Apify).
+ * Throws on navigation failure or timeout — callers should catch and treat it
+ * as "blocked / no data" rather than letting it surface as a 500.
  */
 export async function scrapeStealthHtml(url: string, waitForSelector?: string): Promise<string> {
   const browser = await launchBrowser()

@@ -35,9 +35,9 @@ type DiscoveredLead = {
 
 const SOURCE_CONFIG = [
   { key: 'reddit',   label: 'Reddit',         emoji: '🌐', desc: 'r/Israel, r/israelrealestate',              free: true,  localOnly: false },
-  { key: 'yad2',     label: 'יד2',            emoji: '🏡', desc: 'רישומי נדל"ן — קנייה והשכרה',               free: true,  localOnly: false },
+  { key: 'yad2',     label: 'יד2',            emoji: '🏡', desc: 'רישומי נדל"ן — עובד מקומית בלבד',           free: true,  localOnly: true  },
   { key: 'telegram', label: 'טלגרם',          emoji: '✈️', desc: 'ערוצי נדל"ן ישראלי ציבוריים',              free: true,  localOnly: false },
-  { key: 'madlan',   label: 'מדלן',           emoji: '🏠', desc: 'מוכרים ומשכירים פעילים',                    free: true,  localOnly: false },
+  { key: 'madlan',   label: 'מדלן',           emoji: '🏠', desc: 'מוכרים ומשכירים — עובד מקומית בלבד',        free: true,  localOnly: true  },
   { key: 'facebook', label: 'פייסבוק',        emoji: '👥', desc: 'קבוצות נדל"ן — דורש Chrome מחובר מקומית',  free: true,  localOnly: true  },
   { key: 'url',      label: 'כתובת URL',      emoji: '🔗', desc: 'סרוק כל עמוד ציבורי — יד2, מדלן, פורומים',free: true,  localOnly: true  },
   { key: 'manual',   label: 'הדבקה ידנית',    emoji: '📋', desc: 'פייסבוק, וואטסאפ, כל מקור אחר',            free: true,  localOnly: false },

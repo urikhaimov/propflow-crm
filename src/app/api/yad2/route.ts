@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { scrapeYad2WithApify } from '@/lib/apify'
 import { scrapeStealthHtml } from '@/lib/stealth-scraper'
 
 // Headless browser cold start + navigation can take a while — give it room.
@@ -101,13 +100,7 @@ function buildPost(item: Yad2Item, label: string) {
   return { title, body: `[${label}] ${body}`, url }
 }
 
-export async function GET(req: Request) {
-  const params = new URL(req.url).searchParams
-  const minRooms = params.get('minRooms')
-  const minPrice = params.get('minPrice')
-  const maxPrice = params.get('maxPrice')
-  const dealTypeParam = params.get('dealType')
-  const cityParam = params.get('city')
+export async function GET() {
   const posts: Array<{ title: string; body: string; url: string }> = []
   const seen  = new Set<string>()
   const debug: string[] = []
@@ -161,24 +154,8 @@ export async function GET(req: Request) {
     }
   }
 
-  // ── Apify fallback — last resort when plain HTTP + stealth browser both fail ──
-  if (posts.length === 0 && process.env.APIFY_TOKEN) {
-    debug.push(`yad2: both free methods returned 0 — trying Apify fallback${cityParam ? ` (city: ${cityParam})` : ''}...`)
-    try {
-      const apifyPosts = await scrapeYad2WithApify(15, {
-        cities: cityParam ? [cityParam] : undefined,
-        minRooms: minRooms ? Number(minRooms) : undefined,
-        minPrice: minPrice ? Number(minPrice) : undefined,
-        maxPrice: maxPrice ? Number(maxPrice) : undefined,
-        dealType: dealTypeParam === 'buy' || dealTypeParam === 'rent' ? dealTypeParam : undefined,
-      })
-      posts.push(...apifyPosts)
-      debug.push(`yad2 Apify fallback: ${apifyPosts.length} posts`)
-    } catch (err) {
-      debug.push(`yad2 Apify fallback error: ${String(err).substring(0, 80)}`)
-    }
-  } else if (posts.length === 0) {
-    debug.push('yad2: 0 posts — add APIFY_TOKEN to .env.local to enable Apify fallback')
+  if (posts.length === 0) {
+    debug.push('yad2: 0 posts — blocked on this IP (works from a residential IP / local run)')
   }
 
   return NextResponse.json({ source: 'yad2', count: posts.length, posts, debug })

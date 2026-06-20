@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { scrapeTelegramWithApify } from '@/lib/apify'
 
 // Public Israeli real estate Telegram channels accessible via t.me/s/
 // menivimnet/jeremy_public are actual listing feeds (commercial sales / Tel
@@ -100,24 +99,8 @@ export async function GET() {
     }
   }
 
-  // ── Apify fallback — Telegram blocks Vercel's datacenter IPs on t.me/s/ ──
-  if (posts.length === 0 && process.env.APIFY_TOKEN) {
-    debug.push('telegram plain HTTP returned 0 posts (likely IP-blocked) — trying Apify fallback...')
-    try {
-      // Results come back grouped per-channel, not interleaved. Requesting few
-      // messages per channel (instead of many from just the first channel)
-      // ensures every channel — including the high-value listing feeds, not
-      // just the news channels — has posts within the downstream 15-post
-      // cross-source cap in /api/crawl.
-      const perChannel = Math.max(3, Math.ceil(15 / CHANNELS.length))
-      const apifyPosts = await scrapeTelegramWithApify(CHANNELS, perChannel)
-      posts.push(...apifyPosts)
-      debug.push(`telegram Apify fallback: ${apifyPosts.length} posts`)
-    } catch (err) {
-      debug.push(`telegram Apify fallback error: ${String(err).substring(0, 100)}`)
-    }
-  } else if (posts.length === 0) {
-    debug.push('telegram: 0 posts — add APIFY_TOKEN to .env.local to enable Apify fallback')
+  if (posts.length === 0) {
+    debug.push('telegram: 0 posts — t.me/s/ preview blocked or rate-limited on this IP')
   }
 
   return NextResponse.json({ source: 'telegram', count: posts.length, posts, debug })

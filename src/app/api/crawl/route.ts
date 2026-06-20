@@ -85,22 +85,12 @@ export async function POST(req: NextRequest) {
   const rawPosts: Array<{ text: string; source: string; url?: string; author?: string }> = []
   const debugLog: string[] = []
 
-  // Structured filters parsed from the search keyword — scopes Yad2/Madlan
-  // instead of always pulling from 5 default major cities regardless of input.
+  // Structured filters parsed from the search keyword. Applied post-extraction
+  // via matchesExtractedLead() against Claude's normalized output (city,
+  // intent_type) — the scraper routes themselves return everything they can.
   const filters = extractSearchFilters(keyword)
   const filterSummary = Object.entries(filters).filter(([, v]) => v != null).map(([k, v]) => `${k}=${v}`).join(', ')
   if (filterSummary) debugLog.push(`keyword "${keyword}" → filters: ${filterSummary}`)
-
-  function buildFilteredUrl(base: string, path: string): string {
-    const qs = new URLSearchParams()
-    if (filters.city) qs.set('city', filters.city)
-    if (filters.minRooms) qs.set('minRooms', String(filters.minRooms))
-    if (filters.propertyType) qs.set('propertyType', filters.propertyType)
-    if (filters.maxPrice) qs.set('maxPrice', String(filters.maxPrice))
-    if (filters.dealType) qs.set('dealType', filters.dealType)
-    const qsStr = qs.toString()
-    return qsStr ? `${base}${path}?${qsStr}` : `${base}${path}`
-  }
 
   // ── Manual posts — always first, always all ─────────────────
   for (const post of manualPosts) {
@@ -142,8 +132,7 @@ export async function POST(req: NextRequest) {
   if (sources.includes('madlan')) {
     try {
       const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-      const url = buildFilteredUrl(base, '/api/madlan')
-      const res = await fetch(url, { cache: 'no-store' })
+      const res = await fetch(`${base}/api/madlan`, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         if (data.debug?.length) data.debug.forEach((l: string) => debugLog.push(`  madlan: ${l}`))
@@ -163,8 +152,7 @@ export async function POST(req: NextRequest) {
   if (sources.includes('yad2')) {
     try {
       const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-      const url = buildFilteredUrl(base, '/api/yad2')
-      const res = await fetch(url, { cache: 'no-store' })
+      const res = await fetch(`${base}/api/yad2`, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         if (data.debug?.length) data.debug.forEach((l: string) => debugLog.push(`  yad2: ${l}`))
@@ -263,16 +251,12 @@ export async function POST(req: NextRequest) {
   const seenUrls = new Set<string>((existing || []).map((l: { source_url?: string }) => l.source_url).filter((u): u is string => !!u))
   const seenFingerprints = new Set((existing || []).map((l: { original_post?: string }) => buildFingerprint(l.original_post || '')))
 
-  // Yad2/Madlan already get precisely scoped server-side via structured Apify
-  // params (city/rooms/price/dealType derived from the same keyword) — re-running
-  // a loose text match on top is redundant and breaks on script mismatches (the
-  // keyword's Hebrew "חיפה" won't match a listing whose city field came back as
-  // English "Haifa"). Telegram posts are long, emoji-heavy, and structured
-  // unpredictably per-channel — the same literal-text matching produced false
-  // negatives there too (genuinely relevant listings dropped because the
-  // exact search words didn't appear verbatim in the truncated body). Claude's
-  // own extraction already filters for real intent at no extra correctness
-  // cost, so skip the keyword pre-filter for sources we can't reliably text-match.
+  // Yad2/Madlan/Telegram listings are structured (city/price/rooms fields, or
+  // long emoji-heavy posts) where a literal keyword text-match produces false
+  // negatives — e.g. the keyword's Hebrew "חיפה" won't match a listing whose
+  // city came back as English "Haifa", and truncated bodies drop exact words.
+  // These get filtered post-extraction via matchesExtractedLead() against
+  // Claude's normalized output instead, so skip the raw text pre-filter here.
   const STRUCTURALLY_FILTERED_SOURCES = new Set(['yad2', 'madlan', 'telegram'])
 
   const crawlerPosts = rawPosts

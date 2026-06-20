@@ -35,7 +35,7 @@ export function hasIsraelSignal(text: string, fromIsraelSub = false): boolean {
   return ISRAEL_SIGNALS.some(sig => lower.includes(sig.toLowerCase()))
 }
 
-// English/Hebrew spelling → canonical Hebrew city name (matches Apify actor input format)
+// English/Hebrew spelling → canonical Hebrew city name
 const CITY_NAME_MAP: Record<string, string> = {
   'tel aviv': 'תל אביב', 'תל אביב': 'תל אביב',
   jerusalem: 'ירושלים', ירושלים: 'ירושלים',

@@ -4,13 +4,12 @@
 // Every RENTAL listing is a landlord — a potential investor/seller lead.
 // We try __NEXT_DATA__ first (Madlan runs on Next.js), then JSON-LD, then regex.
 import { NextResponse } from 'next/server'
-import { scrapeMadlanWithApify } from '@/lib/apify'
 
-// Note: a stealth Puppeteer fallback was tried here (same approach that
-// worked for Yad2) but Madlan runs PerimeterX, which serves an interactive
-// CAPTCHA challenge page to headless browsers regardless of stealth patches —
-// confirmed by inspecting the rendered page directly. Not worth the wasted
-// 10-25s per request when it always fails; goes straight to Apify instead.
+// Note: Madlan runs PerimeterX, which serves an interactive CAPTCHA challenge
+// page to any automated request (plain fetch AND headless browsers, regardless
+// of stealth patches — confirmed by inspecting the rendered page directly).
+// There is no free way past it; plain HTTP only works from a non-flagged IP,
+// which in practice means it returns 0 on cloud/datacenter IPs like Vercel's.
 
 const MADLAN_URLS = [
   { url: 'https://www.madlan.co.il/for-sale/israel', intent: 'seller' },
@@ -133,14 +132,7 @@ function extractListings(html: string): RawListing[] {
   return listings
 }
 
-export async function GET(req: Request) {
-  const params = new URL(req.url).searchParams
-  const city = params.get('city')
-  const minRooms = params.get('minRooms')
-  const propertyType = params.get('propertyType')
-  const minPrice = params.get('minPrice')
-  const maxPrice = params.get('maxPrice')
-  const dealTypeParam = params.get('dealType')
+export async function GET() {
   const posts: Array<{ title: string; body: string; url: string }> = []
   const seen = new Set<string>()
   const debug: string[] = []
@@ -175,23 +167,8 @@ export async function GET(req: Request) {
     }
   }
 
-  // ── Apify fallback — plain HTTP is blocked by PerimeterX, no free workaround found ──
-  if (posts.length === 0 && process.env.APIFY_TOKEN) {
-    debug.push('madlan: plain HTTP blocked — trying Apify fallback...')
-    try {
-      const apifyPosts = await scrapeMadlanWithApify(15, {
-        cities: city ? [city] : undefined,
-        minRooms: minRooms ? Number(minRooms) : undefined,
-        propertyType: propertyType || undefined,
-        minPrice: minPrice ? Number(minPrice) : undefined,
-        maxPrice: maxPrice ? Number(maxPrice) : undefined,
-        dealType: dealTypeParam === 'buy' || dealTypeParam === 'rent' ? dealTypeParam : undefined,
-      })
-      posts.push(...apifyPosts)
-      debug.push(`madlan Apify fallback: ${apifyPosts.length} posts`)
-    } catch (err) {
-      debug.push(`madlan Apify fallback error: ${String(err).substring(0, 80)}`)
-    }
+  if (posts.length === 0) {
+    debug.push('madlan: 0 posts — blocked by PerimeterX (works only from a non-flagged residential IP)')
   }
 
   return NextResponse.json({
