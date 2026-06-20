@@ -57,7 +57,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { url, useProfile = false } = body as { url: string; useProfile?: boolean }
+  const { url, useProfile = false, headful = false } = body as { url: string; useProfile?: boolean; headful?: boolean }
 
   if (!url) {
     return NextResponse.json({ error: 'url is required' }, { status: 400 })
@@ -88,8 +88,49 @@ export async function POST(req: NextRequest) {
   try {
     let text = ''
     let title = ''
+    let nextData = ''
 
-    if (useProfile) {
+    if (headful) {
+      // Visible real Chrome — best shot at passing aggressive bot detection
+      // (e.g. Madlan's PerimeterX) that flags headless browsers. Uses a
+      // dedicated persistent profile so a manually-solved CAPTCHA (and its
+      // cookie) survives across runs. Never conflicts with the user's own
+      // Chrome since it's a separate user-data dir.
+      const profileDir = path.join(os.homedir(), '.propflow-scraper-profile')
+      fs.mkdirSync(profileDir, { recursive: true })
+
+      const context = await chromium.launchPersistentContext(profileDir, {
+        executablePath: execPath,
+        headless: false,
+        viewport: { width: 1280, height: 900 },
+        args: [
+          '--disable-blink-features=AutomationControlled',
+          '--no-first-run',
+          '--no-default-browser-check',
+        ],
+        ignoreDefaultArgs: ['--enable-automation'],
+      })
+      try {
+        const page = context.pages()[0] || await context.newPage()
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+        // Poll until the page is real content rather than a bot-challenge,
+        // leaving time for the user to solve a CAPTCHA in the visible window.
+        try {
+          await page.waitForFunction(() => {
+            const t = document.body?.innerText || ''
+            const challenged = /רובוט|captcha|are you a robot|הפרעה|access denied/i.test(t)
+            return !challenged && t.length > 500
+          }, { timeout: 120_000, polling: 1_000 })
+        } catch { /* timed out — return whatever rendered */ }
+        text = await page.evaluate(() => document.body.innerText)
+        title = await page.title()
+        // For SPA listing sites (Madlan), the structured data is in __NEXT_DATA__,
+        // not innerText. Surface it so the caller can parse real listings.
+        nextData = await page.evaluate(() => document.getElementById('__NEXT_DATA__')?.textContent || '')
+      } finally {
+        await context.close()
+      }
+    } else if (useProfile) {
       // Copy session data to a temp dir so we don't conflict with running Chrome
       const sourceProfile = getChromeProfileDir()
       tmpProfileDir = makeTempProfile(sourceProfile)
@@ -132,7 +173,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ text: text.substring(0, 8_000), title, url, isLocal: true })
+    return NextResponse.json({ text: text.substring(0, 8_000), title, url, isLocal: true, nextData: nextData.substring(0, 1_000_000) })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   } finally {
