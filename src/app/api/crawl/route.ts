@@ -232,7 +232,7 @@ export async function POST(req: NextRequest) {
   // Claude's normalized output instead, so skip the raw text pre-filter here.
   const STRUCTURALLY_FILTERED_SOURCES = new Set(['yad2', 'madlan', 'telegram'])
 
-  const crawlerPosts = rawPosts
+  const filteredPosts = rawPosts
     .slice(manualCount)
     .filter(p => {
       if (shouldSkipPost(p, seenUrls, seenFingerprints)) {
@@ -245,7 +245,22 @@ export async function POST(req: NextRequest) {
       }
       return true
     })
-    .slice(0, 15)
+
+  // When the search names a city, rank posts that mention it (bilingual, via
+  // matchesKeyword's city-alias expansion) ahead of the rest so the Claude
+  // processing cap below is spent on likely matches — not arbitrary posts that
+  // the post-extraction city filter would just drop. Array.sort is stable, so
+  // original order is preserved within each group. Precise filtering still
+  // happens later via matchesExtractedLead().
+  if (filters.city) {
+    const city = filters.city
+    const mentionsCity = new Map(filteredPosts.map(p => [p, matchesKeyword(p.text, city)]))
+    filteredPosts.sort((a, b) => Number(mentionsCity.get(b)) - Number(mentionsCity.get(a)))
+    const matchCount = [...mentionsCity.values()].filter(Boolean).length
+    debugLog.push(`ranked ${matchCount} post(s) mentioning "${city}" ahead of the 15-post cap`)
+  }
+
+  const crawlerPosts = filteredPosts.slice(0, 15)
 
   // ── Extract with Claude ─────────────────────────────────────
   const leads = []
