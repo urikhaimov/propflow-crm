@@ -35,15 +35,50 @@ const HEADERS = {
   'Accept': 'text/html,application/xhtml+xml',
 }
 
-// topArea=2 is the only confirmed-working region code (returns ~40 diverse
-// listings spanning multiple central-Israel cities). Yad2 redesigned their
-// site since this scraper was built — the old gw.yad2.co.il JSON API and the
-// bare /realestate/{path} URL (now just a category lobby page with no data)
-// both no longer work. Real results require this query param.
+// Yad2 redesigned their site since this scraper was built — the old
+// gw.yad2.co.il JSON API and the bare /realestate/{path} URL (now just a
+// category lobby page with no data) both no longer work. Real results require
+// region/city query params, and the listings live in React Query's
+// dehydratedState under a "realestate-{forsale|rent}-feed" key.
 const TARGETS = [
   { path: 'forsale', label: 'נכס למכירה — יד2' },
   { path: 'rent',    label: 'נכס להשכרה — יד2' },
 ]
+
+// Yad2's own city/area/topArea codes (pulled live from gw.yad2.co.il's
+// address-autocomplete API — these are the same codes Yad2's search form uses).
+// Keyed by the canonical Hebrew city name that extractCityFromText() produces.
+// When a search names one of these cities, we scope the scrape to it; otherwise
+// fall back to topArea=2 (the broad central-Israel region feed).
+const YAD2_CITY_CODES: Record<string, { city: string; area: number; topArea: number }> = {
+  'תל אביב':     { city: '5000', area: 1,  topArea: 2 },
+  'ירושלים':     { city: '3000', area: 7,  topArea: 100 },
+  'חיפה':        { city: '4000', area: 5,  topArea: 25 },
+  'הרצליה':      { city: '6400', area: 18, topArea: 19 },
+  'נתניה':       { city: '7400', area: 17, topArea: 19 },
+  'רעננה':       { city: '8700', area: 42, topArea: 19 },
+  'באר שבע':     { city: '9000', area: 22, topArea: 43 },
+  'מודיעין':     { city: '1200', area: 8,  topArea: 2 },
+  'רחובות':      { city: '8400', area: 12, topArea: 41 },
+  'אשדוד':       { city: '0070', area: 21, topArea: 41 },
+  'ראשון לציון': { city: '8300', area: 9,  topArea: 2 },
+  'רמת גן':      { city: '8600', area: 3,  topArea: 2 },
+  'בת ים':       { city: '6200', area: 11, topArea: 2 },
+  'אילת':        { city: '2600', area: 24, topArea: 43 },
+  'פתח תקווה':   { city: '7900', area: 4,  topArea: 2 },
+  'גבעתיים':     { city: '6300', area: 3,  topArea: 2 },
+  'חולון':       { city: '6600', area: 11, topArea: 2 },
+}
+
+// Builds the Yad2 search URL: city-scoped when we know the city's codes,
+// otherwise the broad central-region feed.
+function buildSearchUrl(path: string, city: string | null): string {
+  const codes = city ? YAD2_CITY_CODES[city] : null
+  if (codes) {
+    return `https://www.yad2.co.il/realestate/${path}?topArea=${codes.topArea}&area=${codes.area}&city=${codes.city}`
+  }
+  return `https://www.yad2.co.il/realestate/${path}?topArea=2`
+}
 
 interface Yad2Item {
   address?: {
@@ -100,10 +135,14 @@ function buildPost(item: Yad2Item, label: string) {
   return { title, body: `[${label}] ${body}`, url }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const city = new URL(req.url).searchParams.get('city')
   const posts: Array<{ title: string; body: string; url: string }> = []
   const seen  = new Set<string>()
   const debug: string[] = []
+
+  const scoped = city && YAD2_CITY_CODES[city] ? city : null
+  debug.push(scoped ? `yad2: scoping to city "${scoped}"` : `yad2: no city scope (broad central region)${city ? ` — "${city}" not in code map` : ''}`)
 
   // Seed Cloudflare session cookies by visiting the homepage first
   const sessionCookie = await getSessionCookie()
@@ -111,7 +150,7 @@ export async function GET() {
   debug.push(`yad2 session cookie: ${sessionCookie ? `${sessionCookie.substring(0, 60)}…` : 'none'}`)
 
   for (const { path, label } of TARGETS) {
-    const htmlUrl = `https://www.yad2.co.il/realestate/${path}?topArea=2`
+    const htmlUrl = buildSearchUrl(path, scoped)
     let lists: Yad2Item[] | null = null
 
     try {

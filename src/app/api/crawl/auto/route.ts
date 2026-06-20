@@ -1,7 +1,9 @@
 // app/api/crawl/auto/route.ts
-// Scheduled Reddit crawl — called by Vercel Cron every 6 hours.
+// Scheduled crawl — called by Vercel Cron daily.
 // GET: cron trigger (validates CRON_SECRET via Authorization header)
 // POST: manual trigger from Settings page
+// Telegram (MTProto) is the primary source that works on Vercel; Yad2/Madlan
+// are datacenter-IP-blocked there and only yield data on a local run.
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
@@ -120,7 +122,7 @@ async function saveLead(
   return !!data?.id
 }
 
-async function runCrawl(sources: string[] = ['reddit', 'alljobs', 'madlan']) {
+async function runCrawl(sources: string[] = ['telegram', 'yad2', 'madlan']) {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) return { error: 'ANTHROPIC_API_KEY not set', saved: 0, skipped: 0, scanned: 0 }
 
@@ -128,7 +130,8 @@ async function runCrawl(sources: string[] = ['reddit', 'alljobs', 'madlan']) {
 
   // Fetch all sources in parallel
   const sourceMap: Record<string, string> = {
-    reddit: `${base}/api/reddit`,
+    telegram: `${base}/api/telegram`,
+    yad2: `${base}/api/yad2`,
     alljobs: `${base}/api/alljobs`,
     madlan: `${base}/api/madlan`,
   }
@@ -195,9 +198,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
   }
-  // ?sources=reddit,alljobs  or default = all
+  // ?sources=telegram,yad2  or default = all
   const srcParam = req.nextUrl.searchParams.get('sources')
-  const sources = srcParam ? srcParam.split(',').map(s => s.trim()) : ['reddit', 'alljobs']
+  const sources = srcParam ? srcParam.split(',').map(s => s.trim()) : ['telegram', 'yad2', 'madlan']
   const result = await runCrawl(sources)
   return NextResponse.json(result)
 }
@@ -205,7 +208,7 @@ export async function GET(req: NextRequest) {
 // Manual trigger from Settings page — body: { sources?: string[] }
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
-  const sources: string[] = body.sources || ['reddit', 'alljobs', 'madlan']
+  const sources: string[] = body.sources || ['telegram', 'yad2', 'madlan']
   const result = await runCrawl(sources)
   return NextResponse.json(result)
 }

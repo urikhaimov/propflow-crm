@@ -226,16 +226,17 @@ export default function SettingsPage() {
             </div>
           </IntegrationCard>
 
-          {/* Reddit auto-crawl */}
-          <IntegrationCard icon="🤖" title="Reddit — סריקה אוטומטית" status={true}>
+          {/* Telegram auto-crawl */}
+          <IntegrationCard icon="🤖" title="טלגרם — סריקה אוטומטית" status={true}>
             <p className="text-xs text-slate-400 mb-3">
-              Reddit אינו תומך ב-webhooks — המערכת סורקת אוטומטית כל 6 שעות דרך Vercel Cron.
+              המערכת סורקת ערוצי נדל"ן ציבוריים בטלגרם אוטומטית פעם ביום דרך Vercel Cron.
               לידים עם ציון ≥ 60 נשמרים לCRM אוטומטית ומגיעה התראה לצוות.
+              דורש חיבור MTProto (ראו משתני הסביבה למטה).
             </p>
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-slate-800 rounded-lg p-2">
-                  <div className="text-sm font-semibold text-indigo-400">כל 6 שעות</div>
+                  <div className="text-sm font-semibold text-indigo-400">פעם ביום</div>
                   <div className="text-xs text-slate-500">תדירות סריקה</div>
                 </div>
                 <div className="bg-slate-800 rounded-lg p-2">
@@ -248,9 +249,9 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div className="text-xs text-slate-500 mb-1">הפעלה ידנית מיידית</div>
-              <CrawlButton source="reddit" label="Reddit" />
-              <div className="text-xs text-slate-500 mb-1 mt-2">הוסיפו ל-.env.local (אופציונלי — מאבטח את ה-Cron endpoint)</div>
-              <CodeBlock>{`CRON_SECRET=your-secret-string`}</CodeBlock>
+              <CrawlButton source="telegram" label="טלגרם" />
+              <div className="text-xs text-slate-500 mb-1 mt-2">משתני סביבה נדרשים (ראו AGENTS.md — סקריפט התחברות חד-פעמי)</div>
+              <CodeBlock>{`TELEGRAM_API_ID=1234567\nTELEGRAM_API_HASH=abc...\nTELEGRAM_SESSION=1Ab...\nCRON_SECRET=your-secret-string`}</CodeBlock>
             </div>
           </IntegrationCard>
 

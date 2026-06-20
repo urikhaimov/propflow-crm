@@ -1,5 +1,5 @@
 'use client'
-// app/discovery/page.tsx — Real lead discovery from Reddit, Google, manual paste
+// app/discovery/page.tsx — Real lead discovery from Telegram, Yad2, manual paste
 
 import { useState, useEffect } from 'react'
 import CRMLayout from '@/components/layout/CRMLayout'
@@ -34,9 +34,8 @@ type DiscoveredLead = {
 }
 
 const SOURCE_CONFIG = [
-  { key: 'reddit',   label: 'Reddit',         emoji: '🌐', desc: 'r/Israel, r/israelrealestate',              free: true,  localOnly: false },
-  { key: 'yad2',     label: 'יד2',            emoji: '🏡', desc: 'רישומי נדל"ן — עובד מקומית בלבד',           free: true,  localOnly: true  },
   { key: 'telegram', label: 'טלגרם',          emoji: '✈️', desc: 'ערוצי נדל"ן ישראלי ציבוריים',              free: true,  localOnly: false },
+  { key: 'yad2',     label: 'יד2',            emoji: '🏡', desc: 'רישומי נדל"ן — עובד מקומית בלבד',           free: true,  localOnly: true  },
   { key: 'madlan',   label: 'מדלן',           emoji: '🏠', desc: 'מוכרים ומשכירים — עובד מקומית בלבד',        free: true,  localOnly: true  },
   { key: 'facebook', label: 'פייסבוק',        emoji: '👥', desc: 'קבוצות נדל"ן — דורש Chrome מחובר מקומית',  free: true,  localOnly: true  },
   { key: 'url',      label: 'כתובת URL',      emoji: '🔗', desc: 'סרוק כל עמוד ציבורי — יד2, מדלן, פורומים',free: true,  localOnly: true  },
@@ -68,7 +67,7 @@ export default function DiscoveryPage() {
 
   const [isLocal, setIsLocal]           = useState(false)
   const [keyword, setKeyword]           = useState('נדל"ן בישראל')
-  const [selectedSources, setSelected] = useState<string[]>(['reddit', 'manual'])
+  const [selectedSources, setSelected] = useState<string[]>(['telegram', 'manual'])
   const [manualText, setManualText]     = useState('')
   const [manualSource, setManualSource] = useState('facebook')
   const [scrapeUrls, setScrapeUrls]     = useState('')
@@ -113,7 +112,7 @@ export default function DiscoveryPage() {
       : []
 
     if (manualPosts.length) addLog(`נוספו ${manualPosts.length} פוסטים ידניים`)
-    if (selectedSources.includes('reddit')) addLog('סורק Reddit...')
+    if (selectedSources.includes('telegram')) addLog('סורק ערוצי טלגרם...')
 
     try {
       const res = await fetch('/api/crawl', {

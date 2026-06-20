@@ -63,35 +63,35 @@ export async function GET() {
     }
   }
 
-  // ── 3. Reddit raw fetch ──────────────────────────────────────
+  // ── 3. Telegram raw fetch ────────────────────────────────────
   try {
     const t0 = Date.now()
-    const res = await fetch(`${base}/api/reddit`, {
+    const res = await fetch(`${base}/api/telegram`, {
       cache: 'no-store',
       headers: { 'User-Agent': 'PropFlowCRM-debug/1.0' },
     })
     if (res.ok) {
       const data = await res.json()
       const posts = data.posts || []
-      results.reddit = {
+      results.telegram = {
         ok: true,
         latency_ms: Date.now() - t0,
         posts_returned: posts.length,
         sample_titles: posts.slice(0, 3).map((p: any) => p.title?.substring(0, 80)),
-        subreddits: [...new Set(posts.map((p: any) => p.subreddit || 'unknown'))],
+        debug: data.debug || [],
       }
     } else {
-      results.reddit = { ok: false, status: res.status, error: await res.text().catch(() => '') }
+      results.telegram = { ok: false, status: res.status, error: await res.text().catch(() => '') }
     }
   } catch (err) {
-    results.reddit = { ok: false, error: String(err) }
+    results.telegram = { ok: false, error: String(err) }
   }
 
-  // ── 4. Reddit intent-filter simulation ──────────────────────
-  if (results.reddit?.ok && results.reddit?.sample_titles) {
+  // ── 4. Telegram intent-filter simulation ────────────────────
+  if (results.telegram?.ok && results.telegram?.sample_titles) {
     // Re-fetch to get full text for filter test
     try {
-      const res = await fetch(`${base}/api/reddit`, { cache: 'no-store' })
+      const res = await fetch(`${base}/api/telegram`, { cache: 'no-store' })
       const data = await res.json()
       const posts = data.posts || []
       const passing = posts.filter((p: any) => {
@@ -103,10 +103,9 @@ export async function GET() {
         passing_filter: passing.length,
         sample_passing: passing.slice(0, 2).map((p: any) => ({
           title: p.title?.substring(0, 80),
-          subreddit: p.subreddit,
         })),
         note: passing.length === 0
-          ? 'No posts match intent keywords right now — this is normal if Reddit is quiet'
+          ? 'No posts match intent keywords right now — this is normal if the channels are quiet'
           : null,
       }
     } catch {
@@ -181,6 +180,6 @@ export async function GET() {
     }
   }
 
-  const allOk = results.claude?.ok && results.reddit?.ok && results.end_to_end?.ok
+  const allOk = results.claude?.ok && results.telegram?.ok && results.end_to_end?.ok
   return NextResponse.json({ ok: allOk, tests: results })
 }

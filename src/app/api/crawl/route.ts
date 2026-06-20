@@ -100,34 +100,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Reddit ──────────────────────────────────────────────────
-  if (sources.includes('reddit')) {
-    try {
-      const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-      debugLog.push(`fetching reddit from ${base}/api/reddit`)
-      const res = await fetch(`${base}/api/reddit`, { cache: 'no-store' })
-      if (res.ok) {
-        const data = await res.json()
-        const posts = data.posts || []
-        // surface per-subreddit breakdown from the reddit route
-        if (data.debug?.length) data.debug.forEach((l: string) => debugLog.push(`  reddit: ${l}`))
-        debugLog.push(`reddit: ${posts.length} posts after all filters`)
-        for (const post of posts) {
-          rawPosts.push({
-            text: `${post.title}\n${post.body}`.trim(),
-            source: 'reddit',
-            url: post.url,
-            author: post.author,
-          })
-        }
-      } else {
-        debugLog.push(`reddit fetch failed: HTTP ${res.status}`)
-      }
-    } catch (err) {
-      debugLog.push(`reddit error: ${String(err)}`)
-    }
-  }
-
   // ── Madlan ─────────────────────────────────────────────────
   if (sources.includes('madlan')) {
     try {
@@ -152,7 +124,8 @@ export async function POST(req: NextRequest) {
   if (sources.includes('yad2')) {
     try {
       const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-      const res = await fetch(`${base}/api/yad2`, { cache: 'no-store' })
+      const yad2Url = filters.city ? `${base}/api/yad2?city=${encodeURIComponent(filters.city)}` : `${base}/api/yad2`
+      const res = await fetch(yad2Url, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         if (data.debug?.length) data.debug.forEach((l: string) => debugLog.push(`  yad2: ${l}`))

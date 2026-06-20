@@ -93,7 +93,7 @@ export default function DebugPage() {
           <div className="glass rounded-xl p-5 flex items-center justify-between">
             <div>
               <h2 className="font-semibold mb-1">בדיקת מערכת הסריקה</h2>
-              <p className="text-xs text-slate-500">בודק כל שלב בנפרד — API, Reddit, חילוץ Claude, מסלול מלא</p>
+              <p className="text-xs text-slate-500">בודק כל שלב בנפרד — API, טלגרם, חילוץ Claude, מסלול מלא</p>
               {ts && <p className="text-xs text-slate-600 mt-1">הופעל: {ts}</p>}
             </div>
             <button
@@ -140,18 +140,20 @@ export default function DebugPage() {
                 )}
               </TestCard>
 
-              {/* Reddit */}
-              <TestCard title="Reddit — שליפת פוסטים" result={t.reddit}>
-                {t.reddit?.ok ? (
+              {/* Telegram */}
+              <TestCard title="טלגרם — שליפת פוסטים" result={t.telegram}>
+                {t.telegram?.ok ? (
                   <div className="space-y-1.5">
-                    <Row label="פוסטים שהוחזרו" value={t.reddit.posts_returned} ok={t.reddit.posts_returned > 0} />
-                    <Row label="סאברדיטים" value={(t.reddit.subreddits || []).join(', ')} />
-                    {(t.reddit.sample_titles || []).map((title: string, i: number) => (
+                    <Row label="פוסטים שהוחזרו" value={t.telegram.posts_returned} ok={t.telegram.posts_returned > 0} />
+                    {(t.telegram.sample_titles || []).map((title: string, i: number) => (
                       <Row key={i} label={`דוגמה ${i + 1}`} value={title} />
+                    ))}
+                    {(t.telegram.debug || []).map((line: string, i: number) => (
+                      <div key={i} className="text-xs text-slate-500 font-mono">{line}</div>
                     ))}
                   </div>
                 ) : (
-                  <Row label="שגיאה" value={t.reddit?.error || `HTTP ${t.reddit?.status}`} ok={false} />
+                  <Row label="שגיאה" value={t.telegram?.error || `HTTP ${t.telegram?.status}`} ok={false} />
                 )}
               </TestCard>
 
@@ -172,11 +174,11 @@ export default function DebugPage() {
                       <p className="text-xs text-amber-400 mt-1">{t.intent_filter.note}</p>
                     )}
                     {(t.intent_filter.sample_passing || []).map((p: any, i: number) => (
-                      <Row key={i} label={`עובר ${i + 1}`} value={`${p.subreddit}: ${p.title}`} />
+                      <Row key={i} label={`עובר ${i + 1}`} value={p.title} />
                     ))}
                     {t.intent_filter.passing_filter === 0 && (
                       <p className="text-xs text-slate-500 mt-1">
-                        ייתכן שReddit שקט כעת — השתמשו בהדבקה ידנית במקום.
+                        ייתכן שהערוצים שקטים כעת — השתמשו בהדבקה ידנית במקום.
                       </p>
                     )}
                   </div>
@@ -234,11 +236,11 @@ export default function DebugPage() {
                   {!t.claude?.ok && (
                     <p className="text-xs text-slate-500">• Claude נכשל: בדקו ש-<code className="text-amber-400">ANTHROPIC_API_KEY</code> מוגדר ב-.env.local ולא מתחיל ב-NEXT_PUBLIC_</p>
                   )}
-                  {t.reddit?.posts_returned === 0 && (
-                    <p className="text-xs text-slate-500">• Reddit החזיר 0 פוסטים: Reddit עשוי להיות שקט כעת. נסו מחר או השתמשו בהדבקה ידנית.</p>
+                  {t.telegram?.posts_returned === 0 && (
+                    <p className="text-xs text-slate-500">• טלגרם החזיר 0 פוסטים: בדקו ש-<code className="text-amber-400">TELEGRAM_SESSION</code> מוגדר (הרצת סקריפט ההתחברות) או שהערוצים שקטים כעת.</p>
                   )}
-                  {t.intent_filter?.passing_filter === 0 && t.reddit?.posts_returned > 0 && (
-                    <p className="text-xs text-slate-500">• פוסטים נמצאו אך לא עוברים פילטר כוונות: הפוסטים הנוכחיים ב-Reddit לא קשורים לנדל&quot;ן ישראלי.</p>
+                  {t.intent_filter?.passing_filter === 0 && t.telegram?.posts_returned > 0 && (
+                    <p className="text-xs text-slate-500">• פוסטים נמצאו אך לא עוברים פילטר כוונות: הפוסטים הנוכחיים בערוצים לא קשורים לנדל&quot;ן ישראלי.</p>
                   )}
                   {!t.end_to_end?.ok && t.claude?.ok && (
                     <p className="text-xs text-slate-500">• המסלול המלא נכשל: בדקו ש-<code className="text-amber-400">NEXT_PUBLIC_APP_URL=http://localhost:3000</code> מוגדר.</p>
