@@ -237,7 +237,7 @@ export default function DiscoveryPage() {
             <div className="glass rounded-2xl p-4">
               <SectionTitle>מקורות נתונים</SectionTitle>
               <div className="space-y-2">
-                {SOURCE_CONFIG.map(src => {
+                {SOURCE_CONFIG.filter(src => src.key !== 'manual').map(src => {
                   const blocked = src.localOnly && !isLocal
                   const active  = selectedSources.includes(src.key)
                   return (
@@ -313,32 +313,58 @@ export default function DiscoveryPage() {
               </div>
             )}
 
-            {/* Manual paste */}
-            {selectedSources.includes('manual') && (
-              <div className="glass rounded-2xl p-4">
-                <SectionTitle>📋 הדבקה ידנית</SectionTitle>
-                <p className="text-xs text-slate-500 mb-3">
-                  העתיקו פוסט מפייסבוק, טלגרם, וואטסאפ או כל מקום אחר — Claude יחלץ את הליד
-                </p>
-                <select
-                  value={manualSource}
-                  onChange={e => setManualSource(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-white/10 rounded-lg text-sm outline-none mb-2">
-                  <option value="facebook">פייסבוק</option>
-                  <option value="telegram">טלגרם</option>
-                  <option value="whatsapp">וואטסאפ</option>
-                  <option value="yad2">יד2</option>
-                  <option value="other">אחר</option>
-                </select>
-                <textarea
-                  value={manualText}
-                  onChange={e => setManualText(e.target.value)}
-                  placeholder="הדבק כאן את הפוסט... לדוג׳: &#39;מחפש דירת 4 חדרים בתל אביב, תקציב עד 3 מיליון, צריך לעבור תוך חודש&#39;"
-                  className="w-full px-3 py-2.5 bg-slate-800 border border-white/10 rounded-lg text-sm outline-none focus:border-indigo-500 resize-none"
-                  rows={4}
-                />
+            {/* Manual paste — always visible, checkbox lives here */}
+            <div className={`glass rounded-2xl p-4 border transition ${
+              selectedSources.includes('manual')
+                ? 'border-indigo-500/40 bg-indigo-500/5'
+                : 'border-white/5'
+            }`}>
+              <div
+                onClick={() => toggleSource('manual')}
+                className="flex items-center justify-between cursor-pointer mb-1"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">📋</span>
+                  <span className="text-sm font-semibold text-slate-200">הדבקה ידנית</span>
+                  <span className="text-xs text-slate-500">פייסבוק, וואטסאפ, כל מקור אחר</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-green-400">חינם ✓</span>
+                  <div className={`w-4 h-4 rounded border flex items-center justify-center transition ${
+                    selectedSources.includes('manual')
+                      ? 'bg-indigo-500 border-indigo-500'
+                      : 'border-slate-600'
+                  }`}>
+                    {selectedSources.includes('manual') && <span className="text-white text-xs">✓</span>}
+                  </div>
+                </div>
               </div>
-            )}
+
+              {selectedSources.includes('manual') && (
+                <div className="mt-3">
+                  <p className="text-xs text-slate-500 mb-3">
+                    העתיקו פוסט מפייסבוק, טלגרם, וואטסאפ או כל מקום אחר — Claude יחלץ את הליד
+                  </p>
+                  <select
+                    value={manualSource}
+                    onChange={e => setManualSource(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-800 border border-white/10 rounded-lg text-sm outline-none mb-2">
+                    <option value="facebook">פייסבוק</option>
+                    <option value="telegram">טלגרם</option>
+                    <option value="whatsapp">וואטסאפ</option>
+                    <option value="yad2">יד2</option>
+                    <option value="other">אחר</option>
+                  </select>
+                  <textarea
+                    value={manualText}
+                    onChange={e => setManualText(e.target.value)}
+                    placeholder="הדבק כאן את הפוסט... לדוג׳: &#39;מחפש דירת 4 חדרים בתל אביב, תקציב עד 3 מיליון, צריך לעבור תוך חודש&#39;"
+                    className="w-full px-3 py-2.5 bg-slate-800 border border-white/10 rounded-lg text-sm outline-none focus:border-indigo-500 resize-none"
+                    rows={4}
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Facebook setup instructions */}
             {selectedSources.includes('facebook') && isLocal && (
